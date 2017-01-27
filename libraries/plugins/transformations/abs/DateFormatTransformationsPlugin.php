@@ -10,10 +10,7 @@ namespace PMA\libraries\plugins\transformations\abs;
 
 use PMA;
 use PMA\libraries\plugins\TransformationsPlugin;
-
-if (!defined('PHPMYADMIN')) {
-    exit;
-}
+use PMA\libraries\Sanitize;
 
 /**
  * Provides common methods for all of the date format transformations plugins.
@@ -63,9 +60,7 @@ abstract class DateFormatTransformationsPlugin extends TransformationsPlugin
         if (empty($options[2])) {
             $options[2] = 'local';
         } else {
-            $options[2]
-                = /*overload*/
-                mb_strtolower($options[2]);
+            $options[2] = mb_strtolower($options[2]);
         }
 
         if (empty($options[1])) {
@@ -91,26 +86,24 @@ abstract class DateFormatTransformationsPlugin extends TransformationsPlugin
         } else {
             if (preg_match('/^(\d{2}){3,7}$/', $buffer)) {
 
-                if (/*overload*/mb_strlen($buffer) == 14
-                    || /*overload*/mb_strlen($buffer) == 8
-                ) {
+                if (mb_strlen($buffer) == 14 || mb_strlen($buffer) == 8) {
                     $offset = 4;
                 } else {
                     $offset = 2;
                 }
 
                 $aDate = array();
-                $aDate['year'] = (int)/*overload*/
+                $aDate['year'] = (int)
                 mb_substr($buffer, 0, $offset);
-                $aDate['month'] = (int)/*overload*/
+                $aDate['month'] = (int)
                 mb_substr($buffer, $offset, 2);
-                $aDate['day'] = (int)/*overload*/
+                $aDate['day'] = (int)
                 mb_substr($buffer, $offset + 2, 2);
-                $aDate['hour'] = (int)/*overload*/
+                $aDate['hour'] = (int)
                 mb_substr($buffer, $offset + 4, 2);
-                $aDate['minute'] = (int)/*overload*/
+                $aDate['minute'] = (int)
                 mb_substr($buffer, $offset + 6, 2);
-                $aDate['second'] = (int)/*overload*/
+                $aDate['second'] = (int)
                 mb_substr($buffer, $offset + 8, 2);
 
                 if (checkdate($aDate['month'], $aDate['day'], $aDate['year'])) {
@@ -124,7 +117,7 @@ abstract class DateFormatTransformationsPlugin extends TransformationsPlugin
                     );
                 }
                 // If all fails, assume one of the dozens of valid strtime() syntaxes
-                // (http://www.gnu.org/manual/tar-1.12/html_chapter/tar_7.html)
+                // (https://www.gnu.org/manual/tar-1.12/html_chapter/tar_7.html)
             } else {
                 if (preg_match('/^[0-9]\d{1,9}$/', $buffer)) {
                     $timestamp = (int)$buffer;
@@ -153,11 +146,11 @@ abstract class DateFormatTransformationsPlugin extends TransformationsPlugin
             } else {
                 $text = 'INVALID DATE TYPE';
             }
-            $buffer = '<dfn onclick="alert(\'' . $source . '\');" title="'
-                . $source . '">' . $text . '</dfn>';
+            return '<dfn onclick="alert(\'' . Sanitize::jsFormat($source, false) . '\');" title="'
+                . htmlspecialchars($source) . '">' . htmlspecialchars($text) . '</dfn>';
+        } else {
+            return htmlspecialchars($buffer);
         }
-
-        return $buffer;
     }
 
     /* ~~~~~~~~~~~~~~~~~~~~ Getters and Setters ~~~~~~~~~~~~~~~~~~~~ */

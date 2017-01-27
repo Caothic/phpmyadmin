@@ -7,6 +7,8 @@
  */
 namespace PMA\libraries\config;
 
+use PMA\libraries\URL;
+
 /**
  * Performs various compatibility, security and consistency checks on current config
  *
@@ -45,7 +47,7 @@ class ServerConfigChecks
 
         list(
             $sAllowArbitraryServerWarn, $sBlowfishSecretMsg,
-            $sBZipDumpWarn, $sDirectoryNotice, $sForceSSLNotice,
+            $sBZipDumpWarn, $sDirectoryNotice,
             $sGZipDumpWarn, $sLoginCookieValidityWarn,
             $sLoginCookieValidityWarn2, $sLoginCookieValidityWarn3,
             $sSecurityInfoMsg, $sSrvAuthCfgMsg, $sZipDumpExportWarn,
@@ -62,19 +64,6 @@ class ServerConfigChecks
             $cookieAuthUsed, $blowfishSecretSet, $sBlowfishSecretMsg,
             $blowfishSecret
         );
-
-        //
-        // $cfg['ForceSSL']
-        // should be enabled if possible
-        //
-        if (!$this->cfg->getValue('ForceSSL')) {
-            PMA_messagesSet(
-                'notice',
-                'ForceSSL',
-                PMA_lang(PMA_langName('ForceSSL')),
-                PMA_lang($sForceSSLNotice)
-            );
-        }
 
         //
         // $cfg['AllowArbitraryServer']
@@ -227,10 +216,22 @@ class ServerConfigChecks
         $blowfishSecret, $cookieAuthServer, $blowfishSecretSet
     ) {
         if ($cookieAuthServer && $blowfishSecret === null) {
-            $blowfishSecret = uniqid('', true);
+            $blowfishSecret = '';
+            if (! function_exists('openssl_random_pseudo_bytes')) {
+                $random_func = 'phpseclib\\Crypt\\Random::string';
+            } else {
+                $random_func = 'openssl_random_pseudo_bytes';
+            }
+            while (strlen($blowfishSecret) < 32) {
+                $byte = $random_func(1);
+                // We want only ASCII chars
+                if (ord($byte) > 32 && ord($byte) < 127) {
+                    $blowfishSecret .= $byte;
+                }
+            }
+
             $blowfishSecretSet = true;
             $this->cfg->set('blowfish_secret', $blowfishSecret);
-            return array($blowfishSecret, $blowfishSecretSet);
         }
         return array($blowfishSecret, $blowfishSecretSet);
     }
@@ -342,10 +343,10 @@ class ServerConfigChecks
             } else {
                 $blowfishWarnings = array();
                 // check length
-                if (/*overload*/mb_strlen($blowfishSecret) < 8) {
+                if (strlen($blowfishSecret) < 32) {
                     // too short key
                     $blowfishWarnings[] = __(
-                        'Key is too short, it should have at least 8 characters.'
+                        'Key is too short, it should have at least 32 characters.'
                     );
                 }
                 // check used characters
@@ -389,13 +390,13 @@ class ServerConfigChecks
         );
         $sAllowArbitraryServerWarn = sprintf(
             $sAllowArbitraryServerWarn,
-            '[a@?page=form' . PMA_URL_getCommon(array(), 'html', '&')
+            '[a@?page=form' . URL::getCommon(array(), '&')
             . '&amp;formset=Features#tab_Security]',
             '[/a]',
-            '[a@?page=form' . PMA_URL_getCommon(array(), 'html', '&')
+            '[a@?page=form' . URL::getCommon(array(), '&')
             . '&amp;formset=Features#tab_Security]',
             '[/a]',
-            '[a@?page=form' . PMA_URL_getCommon(array(), 'html', '&')
+            '[a@?page=form' . URL::getCommon(array(), '&')
             . '&amp;formset=Features#tab_Security]',
             '[/a]'
         );
@@ -411,7 +412,7 @@ class ServerConfigChecks
         );
         $sBZipDumpWarning = sprintf(
             $sBZipDumpWarning,
-            '[a@?page=form' . PMA_URL_getCommon(array(), 'html', '&')
+            '[a@?page=form' . URL::getCommon(array(), '&')
             . '&amp;formset=Features#tab_Import_export]',
             '[/a]', '%s'
         );
@@ -420,22 +421,13 @@ class ServerConfigChecks
             . 'neither world accessible nor readable or writable by other users on '
             . 'your server.'
         );
-        $sForceSSLNotice = __(
-            'This %soption%s should be enabled if your web server supports it.'
-        );
-        $sForceSSLNotice = sprintf(
-            $sForceSSLNotice,
-            '[a@?page=form' . PMA_URL_getCommon(array(), 'html', '&')
-            . '&amp;formset=Features#tab_Security]',
-            '[/a]'
-        );
         $sGZipDumpWarning = __(
             '%sGZip compression and decompression%s requires functions (%s) which '
             . 'are unavailable on this system.'
         );
         $sGZipDumpWarning = sprintf(
             $sGZipDumpWarning,
-            '[a@?page=form' . PMA_URL_getCommon(array(), 'html', '&')
+            '[a@?page=form' . URL::getCommon(array(), '&')
             . '&amp;formset=Features#tab_Import_export]',
             '[/a]',
             '%s'
@@ -447,7 +439,7 @@ class ServerConfigChecks
         );
         $sLoginCookieValidityWarn = sprintf(
             $sLoginCookieValidityWarn,
-            '[a@?page=form' . PMA_URL_getCommon(array(), 'html', '&')
+            '[a@?page=form' . URL::getCommon(array(), '&')
             . '&amp;formset=Features#tab_Security]',
             '[/a]',
             '[a@' . PMA_getPHPDocLink(
@@ -463,7 +455,7 @@ class ServerConfigChecks
         );
         $sLoginCookieValidityWarn2 = sprintf(
             $sLoginCookieValidityWarn2,
-            '[a@?page=form' . PMA_URL_getCommon(array(), 'html', '&')
+            '[a@?page=form' . URL::getCommon(array(), '&')
             . '&amp;formset=Features#tab_Security]',
             '[/a]'
         );
@@ -474,10 +466,10 @@ class ServerConfigChecks
         );
         $sLoginCookieValidityWarn3 = sprintf(
             $sLoginCookieValidityWarn3,
-            '[a@?page=form' . PMA_URL_getCommon(array(), 'html', '&')
+            '[a@?page=form' . URL::getCommon(array(), '&')
             . '&amp;formset=Features#tab_Security]',
             '[/a]',
-            '[a@?page=form' . PMA_URL_getCommon(array(), 'html', '&')
+            '[a@?page=form' . URL::getCommon(array(), '&')
             . '&amp;formset=Features#tab_Security]',
             '[/a]'
         );
@@ -489,10 +481,10 @@ class ServerConfigChecks
         );
         $sSecurityInfoMsg = sprintf(
             $sSecurityInfoMsg,
-            '[a@?page=servers' . PMA_URL_getCommon(array(), 'html', '&')
+            '[a@?page=servers' . URL::getCommon(array(), '&')
             . '&amp;mode=edit&amp;id=%1$d#tab_Server_config]',
             '[/a]',
-            '[a@?page=form' . PMA_URL_getCommon(array(), 'html', '&')
+            '[a@?page=form' . URL::getCommon(array(), '&')
             . '&amp;formset=Features#tab_Security]',
             '[/a]'
         );
@@ -505,7 +497,7 @@ class ServerConfigChecks
         );
         $sServerAuthConfigMsg = sprintf(
             $sServerAuthConfigMsg,
-            '[a@?page=servers' . PMA_URL_getCommon(array(), 'html', '&')
+            '[a@?page=servers' . URL::getCommon(array(), '&')
             . '&amp;mode=edit&amp;id=%1$d#tab_Server]',
             '[/a]'
         );
@@ -515,7 +507,7 @@ class ServerConfigChecks
         );
         $sZipDumpExportWarn = sprintf(
             $sZipDumpExportWarn,
-            '[a@?page=form' . PMA_URL_getCommon(array(), 'html', '&')
+            '[a@?page=form' . URL::getCommon(array(), '&')
             . '&amp;formset=Features#tab_Import_export]',
             '[/a]',
             '%s'
@@ -526,14 +518,14 @@ class ServerConfigChecks
         );
         $sZipDumpImportWarn = sprintf(
             $sZipDumpImportWarn,
-            '[a@?page=form' . PMA_URL_getCommon(array(), 'html', '&')
+            '[a@?page=form' . URL::getCommon(array(), '&')
             . '&amp;formset=Features#tab_Import_export]',
             '[/a]',
             '%s'
         );
         return array(
             $sAllowArbitraryServerWarn, $sBlowfishSecretMsg, $sBZipDumpWarning,
-            $sDirectoryNotice, $sForceSSLNotice, $sGZipDumpWarning,
+            $sDirectoryNotice, $sGZipDumpWarning,
             $sLoginCookieValidityWarn, $sLoginCookieValidityWarn2,
             $sLoginCookieValidityWarn3, $sSecurityInfoMsg, $sServerAuthConfigMsg,
             $sZipDumpExportWarn, $sZipDumpImportWarn

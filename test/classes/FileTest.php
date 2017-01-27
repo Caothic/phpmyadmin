@@ -6,12 +6,14 @@
  * @package PhpMyAdmin-test
  */
 
+require_once 'test/PMATestCase.php';
+
 /**
  * tests for PMA\libraries\File class
  *
  * @package PhpMyAdmin-test
  */
-class FileTest extends PHPUnit_Framework_TestCase
+class FileTest extends PMATestCase
 {
     /**
      * Setup function for test cases
@@ -20,9 +22,6 @@ class FileTest extends PHPUnit_Framework_TestCase
      */
     public function setup()
     {
-        $GLOBALS['cfg']['BZipDump'] = true;
-        $GLOBALS['cfg']['GZipDump'] = true;
-        $GLOBALS['cfg']['ZipDump'] = true;
         $GLOBALS['charset_conversion'] = false;
     }
 
@@ -57,6 +56,23 @@ class FileTest extends PHPUnit_Framework_TestCase
     }
 
     /**
+     * Test for PMA\libraries\File::read
+     *
+     * @param string $file file string
+     *
+     * @return void
+     * @dataProvider compressedFiles
+     */
+    public function testReadCompressed($file)
+    {
+        $file = new PMA\libraries\File($file);
+        $file->setDecompressContent(true);
+        $file->open();
+        $this->assertEquals("TEST FILE\n", $file->read(100));
+        $file->close();
+    }
+
+    /**
      * Data provider for tests
      *
      * @return array Test data
@@ -67,6 +83,6 @@ class FileTest extends PHPUnit_Framework_TestCase
             array('./test/test_data/test.gz', 'application/gzip'),
             array('./test/test_data/test.bz2', 'application/bzip2'),
             array('./test/test_data/test.zip', 'application/zip'),
-            );
+        );
     }
 }

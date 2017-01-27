@@ -5,12 +5,13 @@
  *
  * @package PhpMyAdmin-Designer
  */
+use PMA\libraries\Response;
 
 require_once 'libraries/common.inc.php';
 require_once 'libraries/pmd_common.php';
 require_once 'libraries/db_designer.lib.php';
 
-$response = PMA\libraries\Response::getInstance();
+$response = Response::getInstance();
 
 if (isset($_REQUEST['dialog'])) {
 
@@ -81,6 +82,8 @@ if (isset($_REQUEST['operation'])) {
     return;
 }
 
+require 'libraries/db_common.inc.php';
+
 $script_display_field = PMA_getTablesInfo();
 $tab_column = PMA_getColumnsInfo();
 $script_tables = PMA_getScriptTabs();
@@ -111,7 +114,7 @@ if (isset($_GET['db'])) {
     $params['db'] = $_GET['db'];
 }
 
-$response = PMA\libraries\Response::getInstance();
+$response = Response::getInstance();
 $response->getFooter()->setMinimal();
 $header   = $response->getHeader();
 $header->setBodyId('pmd_body');
@@ -123,10 +126,7 @@ $scripts->addFile('pmd/designer_objects.js');
 $scripts->addFile('pmd/designer_page.js');
 $scripts->addFile('pmd/history.js');
 $scripts->addFile('pmd/move.js');
-$scripts->addFile('pmd/iecanvas.js', true);
 $scripts->addFile('pmd/init.js');
-
-require 'libraries/db_common.inc.php';
 
 list(
     $tables,

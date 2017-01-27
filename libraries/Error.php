@@ -84,6 +84,11 @@ class Error extends Message
     protected $backtrace = array();
 
     /**
+     * Hide location of errors
+     */
+    protected $hide_location = false;
+
+    /**
      * Constructor
      *
      * @param integer $errno   error number
@@ -107,21 +112,69 @@ class Error extends Message
     }
 
     /**
+     * Process backtrace to avoid path disclossures, objects and so on
+     *
+     * @param array $backtrace backtrace
+     *
+     * @return array
+     */
+    public static function processBacktrace($backtrace)
+    {
+        $result = array();
+
+        $members = array('line', 'function', 'class', 'type');
+
+        foreach ($backtrace as $idx => $step) {
+            /* Create new backtrace entry */
+            $result[$idx] = array();
+
+            /* Make path relative */
+            if (isset($step['file'])) {
+                $result[$idx]['file'] = Error::relPath($step['file']);
+            }
+
+            /* Store members we want */
+            foreach ($members as $name) {
+                if (isset($step[$name])) {
+                    $result[$idx][$name] = $step[$name];
+                }
+            }
+
+            /* Store simplified args */
+            if (isset($step['args'])) {
+                foreach ($step['args'] as $key => $arg) {
+                    $result[$idx]['args'][$key] = Error::getArg($arg, $step['function']);
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Toggles location hiding
+     *
+     * @param boolean $hide Whether to hide
+     *
+     * @return void
+     */
+    public function setHideLocation($hide)
+    {
+        $this->hide_location = $hide;
+    }
+
+    /**
      * sets PMA\libraries\Error::$_backtrace
+     *
+     * We don't store full arguments to avoid wakeup or memory problems.
      *
      * @param array $backtrace backtrace
      *
      * @return void
-     *
-     * @todo This function should store only processed backtrace as full
-     *       backtrace requires too much memory (especially with Response
-     *       object included). It could probably store only printable
-     *       representation as created by getBacktraceDisplay or some
-     *       intermediate form.
      */
     public function setBacktrace($backtrace)
     {
-        $this->backtrace = $backtrace;
+        $this->backtrace = Error::processBacktrace($backtrace);
     }
 
     /**
@@ -239,7 +292,7 @@ class Error extends Message
     public function getHtmlTitle()
     {
         return htmlspecialchars(
-            /*overload*/mb_substr($this->getTitle(), 0, 100)
+            mb_substr($this->getTitle(), 0, 100)
         );
     }
 
@@ -311,12 +364,12 @@ class Error extends Message
                 $retval .= $separator;
                 foreach ($step['args'] as $arg) {
                     $retval .= "\t";
-                    $retval .= Error::getArg($arg, $step['function']);
+                    $retval .= $arg;
                     $retval .= ',' . $separator;
                 }
             } elseif (count($step['args']) > 0) {
                 foreach ($step['args'] as $arg) {
-                    $retval .= Error::getArg($arg, $step['function']);
+                    $retval .= $arg;
                 }
             }
         }
@@ -362,6 +415,8 @@ class Error extends Message
         } elseif (is_scalar($arg)) {
             $retval .= getType($arg) . ' '
                 . htmlspecialchars(var_export($arg, true));
+        } elseif (is_object($arg)) {
+            $retval .= '<Class:' . get_class($arg) . '>';
         } else {
             $retval .= getType($arg);
         }
@@ -403,7 +458,8 @@ class Error extends Message
      */
     public function isUserError()
     {
-        return $this->getNumber() & (E_USER_WARNING | E_USER_ERROR | E_USER_NOTICE);
+        return $this->hide_location ||
+            ($this->getNumber() & (E_USER_WARNING | E_USER_ERROR | E_USER_NOTICE));
     }
 
     /**
@@ -412,40 +468,39 @@ class Error extends Message
      * prevent path disclosure in error message,
      * and make users feel safe to submit error reports
      *
-     * @param string $dest path to be shorten
+     * @param string $path path to be shorten
      *
      * @return string shortened path
      */
-    public static function relPath($dest)
+    public static function relPath($path)
     {
-        $dest = realpath($dest);
+        $dest = @realpath($path);
 
-        if (substr(PHP_OS, 0, 3) == 'WIN') {
-            $separator = '\\';
-        } else {
-            $separator = '/';
+        /* Probably affected by open_basedir */
+        if ($dest === FALSE) {
+            return basename($path);
         }
 
         $Ahere = explode(
-            $separator,
-            realpath(__DIR__ . $separator . '..')
+            DIRECTORY_SEPARATOR,
+            realpath(__DIR__ . DIRECTORY_SEPARATOR . '..')
         );
-        $Adest = explode($separator, $dest);
+        $Adest = explode(DIRECTORY_SEPARATOR, $dest);
 
         $result = '.';
         // && count ($Adest)>0 && count($Ahere)>0 )
-        while (implode($separator, $Adest) != implode($separator, $Ahere)) {
+        while (implode(DIRECTORY_SEPARATOR, $Adest) != implode(DIRECTORY_SEPARATOR, $Ahere)) {
             if (count($Ahere) > count($Adest)) {
                 array_pop($Ahere);
-                $result .= $separator . '..';
+                $result .= DIRECTORY_SEPARATOR . '..';
             } else {
                 array_pop($Adest);
             }
         }
-        $path = $result . str_replace(implode($separator, $Adest), '', $dest);
+        $path = $result . str_replace(implode(DIRECTORY_SEPARATOR, $Adest), '', $dest);
         return str_replace(
-            $separator . $separator,
-            $separator,
+            DIRECTORY_SEPARATOR . PATH_SEPARATOR,
+            DIRECTORY_SEPARATOR,
             $path
         );
     }

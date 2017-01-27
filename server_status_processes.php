@@ -6,6 +6,7 @@
  * @package PhpMyAdmin
  */
 
+use PMA\libraries\Response;
 use PMA\libraries\ServerStatusData;
 
 require_once 'libraries/common.inc.php';
@@ -19,14 +20,15 @@ require_once 'libraries/replication.inc.php';
 require_once 'libraries/replication_gui.lib.php';
 
 $ServerStatusData = new ServerStatusData();
-$response = PMA\libraries\Response::getInstance();
+$response = Response::getInstance();
 
 /**
  * Kills a selected process
  * on ajax request
  */
 if ($response->isAjax() && !empty($_REQUEST['kill'])) {
-    $query = $GLOBALS['dbi']->getKillQuery((int)$_REQUEST['kill']);
+    $kill = intval($_REQUEST['kill']);
+    $query = $GLOBALS['dbi']->getKillQuery($kill);
     if ($GLOBALS['dbi']->tryQuery($query)) {
         $message = PMA\libraries\Message::success(
             __('Thread %s was successfully killed.')
@@ -41,7 +43,7 @@ if ($response->isAjax() && !empty($_REQUEST['kill'])) {
         );
         $response->setRequestStatus(false);
     }
-    $message->addParam($_REQUEST['kill']);
+    $message->addParam($kill);
     $response->addJSON('message', $message);
 } elseif ($response->isAjax() && !empty($_REQUEST['refresh'])) {
     // Only sends the process list table

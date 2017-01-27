@@ -15,13 +15,13 @@ use PMA\libraries\Message;
 use PMA\libraries\Template;
 use PMA\libraries\Util;
 use PMA\Util as Util_lib;
-use SqlParser;
-use SqlParser\Statements\CreateStatement;
-use SqlParser\Utils\Table as SqlTable;
+use PhpMyAdmin\SqlParser;
+use PhpMyAdmin\SqlParser\Statements\CreateStatement;
+use PhpMyAdmin\SqlParser\Utils\Table as SqlTable;
 use PMA\libraries\Table;
 use PMA\libraries\controllers\TableController;
+use PMA\libraries\URL;
 
-require_once 'libraries/mysql_charsets.inc.php';
 require_once 'libraries/transformations.lib.php';
 require_once 'libraries/util.lib.php';
 require_once 'libraries/config/messages.inc.php';
@@ -119,7 +119,6 @@ class TableStructureController extends TableController
         include_once 'libraries/check_user_privileges.lib.php';
         include_once 'libraries/index.lib.php';
         include_once 'libraries/sql.lib.php';
-        include_once 'libraries/bookmark.lib.php';
 
         $this->response->getHeader()->getScripts()->addFiles(
             array(
@@ -147,11 +146,11 @@ class TableStructureController extends TableController
                 $columns_names = $_REQUEST['field_name'];
                 $reserved_keywords_names = array();
                 foreach ($columns_names as $column) {
-                    if (SqlParser\Context::isKeyword(trim($column), true)) {
+                    if (\PhpMyAdmin\SqlParser\Context::isKeyword(trim($column), true)) {
                         $reserved_keywords_names[] = trim($column);
                     }
                 }
-                if (SqlParser\Context::isKeyword(trim($this->table), true)) {
+                if (\PhpMyAdmin\SqlParser\Context::isKeyword(trim($this->table), true)) {
                     $reserved_keywords_names[] = trim($this->table);
                 }
                 if (count($reserved_keywords_names) == 0) {
@@ -317,10 +316,12 @@ class TableStructureController extends TableController
         // got to be eliminated in long run
         $db = &$this->db;
         $table = &$this->table;
+        $url_params = array();
         include_once 'libraries/tbl_common.inc.php';
         $this->_db_is_system_schema = $db_is_system_schema;
         $this->_url_query = $url_query
             . '&amp;goto=tbl_structure.php&amp;back=tbl_structure.php';
+        /* The url_params array is initialized in above include */
         $url_params['goto'] = 'tbl_structure.php';
         $url_params['back'] = 'tbl_structure.php';
 
@@ -347,32 +348,11 @@ class TableStructureController extends TableController
             $this->db, $this->table, null, true
         );
 
-        // Get more complete field information
-        // For now, this is done just for MySQL 4.1.2+ new TIMESTAMP options
-        // but later, if the analyser returns more information, it
-        // could be executed for any MySQL version and replace
-        // the info given by SHOW FULL COLUMNS FROM.
-        //
-        // We also need this to correctly learn if a TIMESTAMP is NOT NULL, since
-        // SHOW FULL COLUMNS or INFORMATION_SCHEMA incorrectly says NULL
-        // and SHOW CREATE TABLE says NOT NULL (tested
-        // in MySQL 4.0.25 and 5.0.21, http://bugs.mysql.com/20910).
-
-        $show_create_table = $this->table_obj->showCreate();
-        $parser = new SqlParser\Parser($show_create_table);
-
-        /**
-         * @var CreateStatement $stmt
-         */
-        $stmt = $parser->statements[0];
-
-        $create_table_fields = SqlTable::getFields($stmt);
-
         //display table structure
         $this->response->addHTML(
             $this->displayStructure(
-                $cfgRelation, $columns_with_unique_index, $url_params, $primary,
-                $fields, $columns_with_index, $create_table_fields
+                $cfgRelation, $columns_with_unique_index, $url_params,
+                $primary, $fields, $columns_with_index
             )
         );
 
@@ -440,7 +420,7 @@ class TableStructureController extends TableController
             $changes[] = 'CHANGE ' . Table::generateAlter(
                 $column,
                 $column,
-                /*overload*/mb_strtoupper($extracted_columnspec['type']),
+                mb_strtoupper($extracted_columnspec['type']),
                 $extracted_columnspec['spec_in_brackets'],
                 $extracted_columnspec['attribute'],
                 isset($data['Collation']) ? $data['Collation'] : '',
@@ -569,9 +549,9 @@ class TableStructureController extends TableController
             return null;
         }
 
-        $parser = new SqlParser\Parser($createTable);
+        $parser = new \PhpMyAdmin\SqlParser\Parser($createTable);
         /**
-         * @var $stmt SqlParser\Statements\CreateStatement
+         * @var $stmt PhpMyAdmin\SqlParser\Statements\CreateStatement
          */
         $stmt = $parser->statements[0];
 
@@ -621,12 +601,16 @@ class TableStructureController extends TableController
         $partitionDetails['can_have_subpartitions']
             = $partitionDetails['partition_count'] > 1
                 && ($partitionDetails['partition_by'] == 'RANGE'
-                || $partitionDetails['partition_by'] == 'LIST');
+                || $partitionDetails['partition_by'] == 'RANGE COLUMNS'
+                || $partitionDetails['partition_by'] == 'LIST'
+                || $partitionDetails['partition_by'] == 'LIST COLUMNS');
 
         // Values are specified only for LIST and RANGE type partitions
         $partitionDetails['value_enabled'] = isset($partitionDetails['partition_by'])
             && ($partitionDetails['partition_by'] == 'RANGE'
-            || $partitionDetails['partition_by'] == 'LIST');
+            || $partitionDetails['partition_by'] == 'RANGE COLUMNS'
+            || $partitionDetails['partition_by'] == 'LIST'
+            || $partitionDetails['partition_by'] == 'LIST COLUMNS');
 
         $partitionDetails['partitions'] = array();
 
@@ -634,6 +618,7 @@ class TableStructureController extends TableController
 
             if (! isset($stmt->partitions[$i])) {
                 $partitionDetails['partitions'][$i] = array(
+                    'name' => 'p' . $i,
                     'value_type' => '',
                     'value' => '',
                     'engine' => '',
@@ -654,6 +639,7 @@ class TableStructureController extends TableController
                     $expr = '';
                 }
                 $partitionDetails['partitions'][$i] = array(
+                    'name' => $p->name,
                     'value_type' => $type,
                     'value' => $expr,
                     'engine' => $p->options->has('ENGINE', true),
@@ -668,7 +654,6 @@ class TableStructureController extends TableController
             }
 
             $partition =& $partitionDetails['partitions'][$i];
-            $partition['name'] = 'p' . $i;
             $partition['prefix'] = 'partitions[' . $i . ']';
 
             if ($partitionDetails['subpartition_count'] > 1) {
@@ -678,6 +663,7 @@ class TableStructureController extends TableController
                 for ($j = 0; $j < intval($partitionDetails['subpartition_count']); $j++) {
                     if (! isset($stmt->partitions[$i]->subpartitions[$j])) {
                         $partition['subpartitions'][$j] = array(
+                            'name' => $partition['name'] . '_s' . $j,
                             'engine' => '',
                             'comment' => '',
                             'data_directory' => '',
@@ -690,6 +676,7 @@ class TableStructureController extends TableController
                     } else {
                         $sp = $stmt->partitions[$i]->subpartitions[$j];
                         $partition['subpartitions'][$j] = array(
+                            'name' => $sp->name,
                             'engine' => $sp->options->has('ENGINE', true),
                             'comment' => trim($sp->options->has('COMMENT', true), "'"),
                             'data_directory' => trim($sp->options->has('DATA DIRECTORY', true), "'"),
@@ -702,7 +689,6 @@ class TableStructureController extends TableController
                     }
 
                     $subpartition =& $partition['subpartitions'][$j];
-                    $subpartition['name'] = 'p' . $i . 's' . $j;
                     $subpartition['prefix'] = 'partitions[' . $i . ']'
                         . '[subpartitions][' . $j . ']';
                 }
@@ -845,7 +831,7 @@ class TableStructureController extends TableController
      */
     protected function updateColumns()
     {
-        $err_url = 'tbl_structure.php' . PMA_URL_getCommon(
+        $err_url = 'tbl_structure.php' . URL::getCommon(
             array(
                 'db' => $this->db, 'table' => $this->table
             )
@@ -882,7 +868,7 @@ class TableStructureController extends TableController
                 Table::PROP_SORTED_COLUMN
             );
             // if the old column name is part of the remembered sort expression
-            if (/*overload*/mb_strpos(
+            if (mb_strpos(
                 $sorted_col,
                 Util::backquote($_REQUEST['field_orig'][$i])
             ) !== false) {
@@ -933,8 +919,8 @@ class TableStructureController extends TableController
             $columns_with_index = $this->dbi
                 ->getTable($this->db, $this->table)
                 ->getColumnsWithIndex(
-                    PMA_Index::PRIMARY | PMA_Index::UNIQUE | PMA_Index::INDEX
-                    | PMA_Index::SPATIAL | PMA_Index::FULLTEXT
+                    Index::PRIMARY | Index::UNIQUE | Index::INDEX
+                    | Index::SPATIAL | Index::FULLTEXT
                 );
 
             $changedToBlob = array();
@@ -1053,9 +1039,7 @@ class TableStructureController extends TableController
         ) {
             foreach ($_REQUEST['field_mimetype'] as $fieldindex => $mimetype) {
                 if (isset($_REQUEST['field_name'][$fieldindex])
-                    && /*overload*/mb_strlen(
-                        $_REQUEST['field_name'][$fieldindex]
-                    )
+                    && strlen($_REQUEST['field_name'][$fieldindex]) > 0
                 ) {
                     PMA_setMIME(
                         $this->db, $this->table,
@@ -1086,7 +1070,7 @@ class TableStructureController extends TableController
         $changed = false;
 
         if (Util_lib\get($GLOBALS, 'col_priv', false)
-            && Util_lib\get($GLOBALS, 'flush_priv', false)
+            && Util_lib\get($GLOBALS, 'is_reload_priv', false)
         ) {
             $this->dbi->selectDb('mysql');
 
@@ -1137,10 +1121,14 @@ class TableStructureController extends TableController
         }
 
         // field_name does not follow the convention (corresponds to field_orig)
+        if ($_REQUEST['field_name'][$i] != $_REQUEST['field_orig'][$i]) {
+            return true;
+        }
+
         $fields = array(
             'field_attribute', 'field_collation', 'field_comments',
             'field_default_value', 'field_default_type', 'field_extra',
-            'field_length', 'field_name', 'field_null', 'field_type'
+            'field_length', 'field_null', 'field_type'
         );
         foreach ($fields as $field) {
             if ($_REQUEST[$field][$i] != $_REQUEST[$field . '_orig'][$i]) {
@@ -1161,13 +1149,12 @@ class TableStructureController extends TableController
      *                                               no one exists
      * @param array       $fields                    Fields
      * @param array       $columns_with_index        Columns with index
-     * @param array       $create_table_fields       Fields of the table.
      *
      * @return string
      */
     protected function displayStructure(
-        $cfgRelation, $columns_with_unique_index, $url_params, $primary_index,
-        $fields, $columns_with_index, $create_table_fields
+        $cfgRelation, $columns_with_unique_index, $url_params,
+        $primary_index, $fields, $columns_with_index
     ) {
         /* TABLE INFORMATION */
         $HideStructureActions = '';
@@ -1221,8 +1208,8 @@ class TableStructureController extends TableController
                     FROM `INFORMATION_SCHEMA`.`VIEWS`
                     WHERE TABLE_SCHEMA='%s'
                     AND TABLE_NAME='%s';",
-                    Util::sqlAddSlashes($this->db),
-                    Util::sqlAddSlashes($this->table)
+                    $GLOBALS['dbi']->escapeString($this->db),
+                    $GLOBALS['dbi']->escapeString($this->table)
                 )
             );
 
@@ -1244,7 +1231,7 @@ class TableStructureController extends TableController
             );
 
             $edit_view_url = 'view_create.php'
-                . PMA_URL_getCommon($url_params) . '&amp;'
+                . URL::getCommon($url_params) . '&amp;'
                 . implode(
                     '&amp;',
                     array_map(
@@ -1290,7 +1277,6 @@ class TableStructureController extends TableController
                 'fields' => $fields,
                 'columns_with_index' => $columns_with_index,
                 'central_list' => $central_list,
-                'create_table_fields' => $create_table_fields,
                 'comments_map' => $comments_map
             )
         );

@@ -8,11 +8,10 @@
 use PMA\libraries\plugins\export\ExportTexytext;
 
 require_once 'libraries/export.lib.php';
-require_once 'libraries/php-gettext/gettext.inc';
 require_once 'libraries/config.default.php';
 require_once 'libraries/relation.lib.php';
 require_once 'libraries/transformations.lib.php';
-require_once 'export.php';
+require_once 'test/PMATestCase.php';
 
 /**
  * tests for PMA\libraries\plugins\export\ExportTexytext class
@@ -20,7 +19,7 @@ require_once 'export.php';
  * @package PhpMyAdmin-test
  * @group medium
  */
-class ExportTexytextTest extends PHPUnit_Framework_TestCase
+class ExportTexytextTest extends PMATestCase
 {
     protected $object;
 
@@ -364,6 +363,7 @@ class ExportTexytextTest extends PHPUnit_Framework_TestCase
         $this->object = $this->getMockBuilder('PMA\libraries\plugins\export\ExportTexytext')
             ->setMethods(array('formatOneColumnDefinition'))
             ->getMock();
+        $GLOBALS['controllink'] = null;
 
         // case 1
 
@@ -387,38 +387,29 @@ class ExportTexytextTest extends PHPUnit_Framework_TestCase
             ->with('db', 'table')
             ->will($this->returnValue($keys));
 
-        $dbi->expects($this->at(2))
+        $dbi->expects($this->exactly(2))
             ->method('fetchResult')
-            ->will(
-                $this->returnValue(
-                    array(
-                        'fname' => array(
-                            'foreign_table' => '<ftable',
-                            'foreign_field' => 'ffield>'
-                        )
+            ->willReturnOnConsecutiveCalls(
+                array(
+                    'fname' => array(
+                        'foreign_table' => '<ftable',
+                        'foreign_field' => 'ffield>'
+                    )
+                ),
+                array(
+                    'fname' => array(
+                        'values' => 'test-',
+                        'transformation' => 'testfoo',
+                        'mimetype' => 'test<'
                     )
                 )
             );
 
-        $dbi->expects($this->at(3))
+        $dbi->expects($this->once())
             ->method('fetchValue')
             ->will(
                 $this->returnValue(
                     'SELECT a FROM b'
-                )
-            );
-
-        $dbi->expects($this->at(5))
-            ->method('fetchResult')
-            ->will(
-                $this->returnValue(
-                    array(
-                        'fname' => array(
-                            'values' => 'test-',
-                            'transformation' => 'testfoo',
-                            'mimetype' => 'test<'
-                        )
-                    )
                 )
             );
 
@@ -617,8 +608,6 @@ class ExportTexytextTest extends PHPUnit_Framework_TestCase
      */
     public function testFormatOneColumnDefinition()
     {
-        $GLOBALS['cfg']['LimitChars'] = 40;
-
         $cols = array(
             'Null' => 'Yes',
             'Field' => 'field',

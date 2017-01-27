@@ -10,13 +10,13 @@
 use PMA\libraries\config\PageSettings;
 use PMA\libraries\Response;
 use PMA\libraries\Util;
+use PMA\libraries\URL;
 
 /**
  * Gets some core libraries
  */
 require_once 'libraries/common.inc.php';
 require_once 'libraries/check_user_privileges.lib.php';
-require_once 'libraries/bookmark.lib.php';
 require_once 'libraries/sql.lib.php';
 require_once 'libraries/config/user_preferences.forms.php';
 require_once 'libraries/config/page_settings.forms.php';
@@ -45,15 +45,8 @@ if (isset($ajax_reload) && $ajax_reload['reload'] === true) {
 /**
  * Defines the url to return to in case of error in a sql statement
  */
-// Security checks
-if (! empty($goto)) {
-    $is_gotofile     = preg_replace('@^([^?]+).*$@s', '\\1', $goto);
-    if (! @file_exists('' . $is_gotofile)) {
-        unset($goto);
-    } else {
-        $is_gotofile = ($is_gotofile == $goto);
-    }
-} else {
+$is_gotofile  = true;
+if (empty($goto)) {
     if (empty($table)) {
         $goto = Util::getScriptNameForOption(
             $GLOBALS['cfg']['DefaultTabDatabase'], 'database'
@@ -63,14 +56,13 @@ if (! empty($goto)) {
             $GLOBALS['cfg']['DefaultTabTable'], 'table'
         );
     }
-    $is_gotofile  = true;
 } // end if
 
 if (! isset($err_url)) {
     $err_url = (! empty($back) ? $back : $goto)
-        . '?' . PMA_URL_getCommon(array('db' => $GLOBALS['db']))
-        . ((/*overload*/mb_strpos(' ' . $goto, 'db_') != 1
-            && /*overload*/mb_strlen($table))
+        . '?' . URL::getCommon(array('db' => $GLOBALS['db']))
+        . ((mb_strpos(' ' . $goto, 'db_') != 1
+            && strlen($table) > 0)
             ? '&amp;table=' . urlencode($table)
             : ''
         );
@@ -130,9 +122,7 @@ if (isset($_REQUEST['set_col_prefs']) && $_REQUEST['set_col_prefs'] == true) {
 
 // Default to browse if no query set and we have table
 // (needed for browsing from DefaultTabTable)
-$tableLength = /*overload*/mb_strlen($table);
-$dbLength = /*overload*/mb_strlen($db);
-if (empty($sql_query) && $tableLength && $dbLength) {
+if (empty($sql_query) && strlen($table) > 0 && strlen($db) > 0) {
     $sql_query = PMA_getDefaultSqlQueryForBrowse($db, $table);
 
     // set $goto to what will be displayed if query returns 0 rows
@@ -149,10 +139,14 @@ require_once 'libraries/parse_analyze.lib.php';
 list(
     $analyzed_sql_results,
     $db,
-    $table
+    $table_from_sql
 ) = PMA_parseAnalyze($sql_query, $db);
 // @todo: possibly refactor
 extract($analyzed_sql_results);
+
+if ($table != $table_from_sql && !empty($table_from_sql)) {
+    $table = $table_from_sql;
+}
 
 
 /**
@@ -185,7 +179,7 @@ if (isset($find_real_end) && $find_real_end) {
  * Bookmark add
  */
 if (isset($_POST['store_bkm'])) {
-    PMA_addBookmark($cfg['PmaAbsoluteUri'], $goto);
+    PMA_addBookmark($goto);
     // script has exited at this point
 } // end if
 
@@ -195,7 +189,7 @@ if (isset($_POST['store_bkm'])) {
  */
 if ($goto == 'sql.php') {
     $is_gotofile = false;
-    $goto = 'sql.php' . PMA_URL_getCommon(
+    $goto = 'sql.php' . URL::getCommon(
         array(
             'db' => $db,
             'table' => $table,

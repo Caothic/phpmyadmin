@@ -10,6 +10,7 @@
  * since 'check_user_privileges.lib.php' will use it globally
  */
 use PMA\libraries\plugins\import\ImportLdi;
+use PMA\libraries\File;
 
 $GLOBALS['server'] = 0;
 $GLOBALS['plugin_param'] = "table";
@@ -17,18 +18,16 @@ $GLOBALS['plugin_param'] = "table";
 /*
  * Include to test.
  */
-require_once 'libraries/sanitizing.lib.php';
-require_once 'libraries/url_generating.lib.php';
-require_once 'libraries/php-gettext/gettext.inc';
 require_once 'libraries/database_interface.inc.php';
 require_once 'libraries/import.lib.php';
+require_once 'test/PMATestCase.php';
 
 /**
  * Tests for PMA\libraries\plugins\import\ImportLdi class
  *
  * @package PhpMyAdmin-test
  */
-class ImportLdiTest extends PHPUnit_Framework_TestCase
+class ImportLdiTest extends PMATestCase
 {
     /**
      * @access protected
@@ -49,15 +48,13 @@ class ImportLdiTest extends PHPUnit_Framework_TestCase
         $GLOBALS['read_limit'] = 100000000;
         $GLOBALS['offset'] = 0;
         $GLOBALS['cfg']['Server']['DisableIS'] = false;
-        $GLOBALS['cfg']['ServerDefault'] = 0;
-        $GLOBALS['cfg']['AllowUserDropDatabase'] = false;
 
         $GLOBALS['import_file'] = 'test/test_data/db_test_ldi.csv';
         $GLOBALS['import_text'] = 'ImportLdi_Test';
-        $GLOBALS['compression'] = 'none';
         $GLOBALS['read_multiply'] = 10;
         $GLOBALS['import_type'] = 'csv';
-        $GLOBALS['import_handle'] = @fopen($GLOBALS['import_file'], 'r');
+        $GLOBALS['import_handle'] = new File($GLOBALS['import_file']);
+        $GLOBALS['import_handle']->open();
 
         //setting for Ldi
         $GLOBALS['cfg']['Import']['ldi_replace'] = false;
@@ -84,6 +81,9 @@ class ImportLdiTest extends PHPUnit_Framework_TestCase
         $fetchRowResult = array("ON");
         $dbi->expects($this->any())->method('fetchRow')
             ->will($this->returnValue($fetchRowResult));
+
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
 
         $GLOBALS['dbi'] = $dbi;
 

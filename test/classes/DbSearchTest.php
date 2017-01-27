@@ -9,10 +9,8 @@
  * Include to test.
  */
 
-require_once 'libraries/php-gettext/gettext.inc';
-require_once 'libraries/url_generating.lib.php';
-require_once 'libraries/core.lib.php';
 require_once 'libraries/database_interface.inc.php';
+require_once 'test/PMATestCase.php';
 
 use PMA\libraries\DbSearch;
 use PMA\libraries\Theme;
@@ -22,7 +20,7 @@ use PMA\libraries\Theme;
  *
  * @package PhpMyAdmin-test
  */
-class DbSearchTest extends PHPUnit_Framework_TestCase
+class DbSearchTest extends PMATestCase
 {
     /**
      * @access protected
@@ -40,9 +38,24 @@ class DbSearchTest extends PHPUnit_Framework_TestCase
     {
         $this->object = new DbSearch('pma_test');
         $GLOBALS['server'] = 0;
-        $GLOBALS['cfg']['ServerDefault'] = 1;
-        $GLOBALS['cfg']['ShowHint'] = true;
         $GLOBALS['db'] = 'pma';
+        $GLOBALS['collation_connection'] = 'utf-8';
+
+        //mock DBI
+        $dbi = $this->getMockBuilder('PMA\libraries\DatabaseInterface')
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $dbi->expects($this->any())
+            ->method('getColumns')
+            ->with('pma', 'table1')
+            ->will($this->returnValue(array()));
+
+        $dbi->expects($this->any())
+            ->method('escapeString')
+            ->will($this->returnArgument(0));
+
+        $GLOBALS['dbi'] = $dbi;
     }
 
     /**
@@ -80,18 +93,6 @@ class DbSearchTest extends PHPUnit_Framework_TestCase
      */
     public function testGetSearchSqls()
     {
-        //mock DBI
-        $dbi = $this->getMockBuilder('PMA\libraries\DatabaseInterface')
-            ->disableOriginalConstructor()
-            ->getMock();
-
-        $dbi->expects($this->any())
-            ->method('getColumns')
-            ->with('pma', 'table1')
-            ->will($this->returnValue(array()));
-
-        $GLOBALS['dbi'] = $dbi;
-
         $this->assertEquals(
             array (
                 'select_columns' => 'SELECT *  FROM `pma`.`table1` WHERE FALSE',
@@ -125,7 +126,6 @@ class DbSearchTest extends PHPUnit_Framework_TestCase
      *
      * @param string $each_table    Tables on which search is to be performed
      * @param array  $newsearchsqls Contains SQL queries
-     * @param bool   $odd_row       For displaying contrasting table rows
      * @param string $output        Expected HTML output
      *
      * @return void
@@ -133,14 +133,14 @@ class DbSearchTest extends PHPUnit_Framework_TestCase
      * @dataProvider providerForTestGetResultsRow
      */
     public function testGetResultsRow(
-        $each_table, $newsearchsqls, $odd_row, $output
+        $each_table, $newsearchsqls, $output
     ) {
 
         $this->assertEquals(
             $output,
             $this->_callProtectedFunction(
                 '_getResultsRow',
-                array($each_table, $newsearchsqls, $odd_row, 2)
+                array($each_table, $newsearchsqls, 2)
             )
         );
     }
@@ -162,30 +162,21 @@ class DbSearchTest extends PHPUnit_Framework_TestCase
                     'select_columns' => 'column1',
                     'delete' => 'column2'
                 ),
-                true,
-                '<tr class="noclick odd"><td>2 matches in <strong>table1</strong>'
-                . '</td><td><a name="browse_search" class="ajax" '
+                '<tr class="noclick"><td>2 matches in <strong>table1</strong>'
+                . '</td><td><a name="browse_search"  class="ajax browse_results" '
                 . 'href="sql.php?db=pma&amp;table'
                 . '=table1&amp;goto=db_sql.php&amp;pos=0&amp;is_js_confirmed=0&amp;'
-                . 'sql_query=column1&amp;server=0&amp;lang=en&amp;'
-                . 'collation_connection=utf-8&amp;token=token" '
-                . 'onclick="loadResult(\'sql.php?db=pma&amp;table=table1&amp;goto='
-                . 'db_sql.php&amp;pos=0&amp;is_js_confirmed=0&amp;sql_query=column1'
-                . '&amp;server=0&amp;lang=en&amp;collation_connection=utf-8'
-                . '&amp;token=token\',\'table1\',\'?db=pma'
-                . '&amp;table=table1&amp;server=0&amp;lang=en'
-                . '&amp;collation_connection=utf-8&amp;token=token\');'
-                . 'return false;" >Browse</a></td><td>'
-                . '<a name="delete_search" class="ajax" href'
+                . 'server=0&amp;lang=en&amp;'
+                . 'collation_connection=utf-8" '
+                . 'data-browse-sql="column1" data-table-name="table1" '
+                . '>Browse</a></td><td>'
+                . '<a name="delete_search" class="ajax delete_results" href'
                 . '="sql.php?db=pma&amp;table=table1&amp;goto=db_sql.php&amp;pos=0'
-                . '&amp;is_js_confirmed=0&amp;sql_query=column2&amp;server=0&amp;'
-                . 'lang=en&amp;collation_connection=utf-8&amp;token=token"'
-                . ' onclick="deleteResult(\'sql.php?db=pma'
-                . '&amp;table=table1&amp;goto=db_sql.php&amp;pos=0&amp;is_js_'
-                . 'confirmed=0&amp;sql_query=column2&amp;server=0&amp;lang=en'
-                . '&amp;collation_connection=utf-8&amp;'
-                . 'token=token\' , \'Delete the matches for the table1 table?\');'
-                . 'return false;">Delete</a></td></tr>'
+                . '&amp;is_js_confirmed=0&amp;server=0&amp;'
+                . 'lang=en&amp;collation_connection=utf-8" '
+                . 'data-delete-sql="column2" '
+                . 'data-table-name="table1" '
+                . '>Delete</a></td></tr>'
             )
         );
     }
@@ -197,8 +188,6 @@ class DbSearchTest extends PHPUnit_Framework_TestCase
      */
     public function testGetSelectionForm()
     {
-        $_SESSION['PMA_Theme'] = new Theme();
-        $GLOBALS['pmaThemeImage'] = 'themes/dot.gif';
         $this->assertEquals(
             '<a id="db_search"></a><form id="db_search_form" class="ajax lock-page" '
             . 'method="post" action="db_search.php" name="db_search">'
@@ -213,13 +202,13 @@ class DbSearchTest extends PHPUnit_Framework_TestCase
             . 'type="radio" name="criteriaSearchType" id="criteriaSearchType_1" '
             . 'value="1" checked="checked" />' . "\n"
             . '<label for="criteriaSearchType_1">at least one of the words<span '
-            . 'class="pma_hint"><img src="themes/dot.gifb_help.png" title="" alt="" '
+            . 'class="pma_hint"><img src="themes/dot.gif" title="" alt="" class="icon ic_b_help" '
             . '/><span class="hide">Words are separated by a space character (" ").'
             . '</span></span></label><br />' . "\n"
             . '<input type="radio" name="criteriaSearchType" id="criteriaSearchType'
             . '_2" value="2" />' . "\n"
             . '<label for="criteriaSearchType_2">all words<span class="pma_hint">'
-            . '<img src="themes/dot.gifb_help.png" title="" alt="" /><span class'
+            . '<img src="themes/dot.gif" title="" alt="" class="icon ic_b_help" /><span class'
             . '="hide">Words are separated by a space character (" ").</span></span>'
             . '</label><br />' . "\n"
             . '<input type="radio" name="criteriaSearchType" id="criteriaSearchType'
@@ -228,10 +217,10 @@ class DbSearchTest extends PHPUnit_Framework_TestCase
             . "\n" . '<input type="radio" name="criteriaSearchType" id="criteria'
             . 'SearchType_4" value="4" />' . "\n"
             . '<label for="criteriaSearchType_4">as regular expression <a href='
-            . '"./url.php?url=http%3A%2F%2Fdev.mysql.com%2Fdoc%2Frefman%2F5.7%2Fen'
+            . '"./url.php?url=https%3A%2F%2Fdev.mysql.com%2Fdoc%2Frefman%2F5.7%2Fen'
             . '%2Fregexp.html" target='
-            . '"mysql_doc"><img src="themes/dot.gifb_help.png" title="Documentation"'
-            . ' alt="Documentation" /></a></label><br />' . "\n"
+            . '"mysql_doc"><img src="themes/dot.gif" title="Documentation"'
+            . ' alt="Documentation" class="icon ic_b_help" /></a></label><br />' . "\n"
             . '</td></tr><tr><td class="right vtop">Inside tables:</td>'
             . '<td rowspan="2"><select name="criteriaTables[]" size="6" '
             . 'multiple="multiple"><option value="table1">table1</option>'

@@ -6,6 +6,9 @@
  *
  * @package PhpMyAdmin
  */
+use PMA\libraries\URL;
+use PMA\libraries\Response;
+
 /**
  * Gets some core libraries
  */
@@ -55,7 +58,7 @@ if (isset($_POST['add_column'])) {
     $selected_col[] = $_POST['column-select'];
     $tmp_msg = PMA_syncUniqueColumns($selected_col, false, $selected_tbl);
 }
-$response = PMA\libraries\Response::getInstance();
+$response = Response::getInstance();
 $header = $response->getHeader();
 $scripts = $header->getScripts();
 $scripts->addFile('jquery/jquery.uitablefilter.js');
@@ -64,7 +67,7 @@ $scripts->addFile('db_central_columns.js');
 $cfgCentralColumns = PMA_centralColumnsGetParams();
 $pmadb = $cfgCentralColumns['db'];
 $pmatable = $cfgCentralColumns['table'];
-$max_rows = $GLOBALS['cfg']['MaxRows'];
+$max_rows = intval($GLOBALS['cfg']['MaxRows']);
 
 if (isset($_REQUEST['edit_central_columns_page'])) {
     $selected_fld = $_REQUEST['selected_fld'];
@@ -92,8 +95,8 @@ if (isset($_REQUEST['total_rows']) && $_REQUEST['total_rows']) {
 } else {
     $total_rows = PMA_getCentralColumnsCount($db);
 }
-if (isset($_REQUEST['pos'])) {
-    $pos = $_REQUEST['pos'];
+if (PMA_isValid($_REQUEST['pos'], 'integer')) {
+    $pos = intval($_REQUEST['pos']);
 } else {
     $pos = 0;
 }
@@ -114,7 +117,7 @@ $response->addHTML($table_navigation_html);
 $columnAdd = PMA_getHTMLforAddCentralColumn($total_rows, $pos, $db);
 $response->addHTML($columnAdd);
 $deleteRowForm = '<form method="post" id="del_form" action="db_central_columns.php">'
-        . PMA_URL_getHiddenInputs(
+        . URL::getHiddenInputs(
             $db
         )
         . '<input id="del_col_name" type="hidden" name="col_name" value="">'
@@ -131,14 +134,12 @@ $tableheader = PMA_getCentralColumnsTableHeader(
 );
 $response->addHTML($tableheader);
 $result = PMA_getColumnsList($db, $pos, $max_rows);
-$odd_row = true;
 $row_num = 0;
 foreach ($result as $row) {
     $tableHtmlRow = PMA_getHTMLforCentralColumnsTableRow(
-        $row, $odd_row, $row_num, $db
+        $row, $row_num, $db
     );
     $response->addHTML($tableHtmlRow);
-    $odd_row = !$odd_row;
     $row_num++;
 }
 $response->addHTML('</table>');

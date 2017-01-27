@@ -7,14 +7,6 @@
  * @group common.lib-tests
  */
 
-/*
- * Include to test.
- */
-require_once 'libraries/core.lib.php';
-
-require_once 'libraries/url_generating.lib.php';
-require_once 'libraries/php-gettext/gettext.inc';
-
 /**
  * Test for PMA_getDbLink_test from Util.php
  *
@@ -31,7 +23,6 @@ class PMA_GetDbLink_Test extends PHPUnit_Framework_TestCase
     function setUp()
     {
         global $cfg;
-        include_once 'libraries/vendor_config.php';
         include 'libraries/config.default.php';
         $GLOBALS['server'] = 99;
     }
@@ -67,7 +58,7 @@ class PMA_GetDbLink_Test extends PHPUnit_Framework_TestCase
                 $GLOBALS['cfg']['DefaultTabDatabase'], 'database'
             )
             . '?db=' . $database
-            . '&amp;server=99&amp;lang=en&amp;token=token" '
+            . '&amp;server=99&amp;lang=en" '
             . 'title="Jump to database &quot;'
             . htmlspecialchars($database) . '&quot;.">'
             . htmlspecialchars($database) . '</a>',
@@ -89,7 +80,7 @@ class PMA_GetDbLink_Test extends PHPUnit_Framework_TestCase
                 $GLOBALS['cfg']['DefaultTabDatabase'], 'database'
             )
             . '?db=' . $database
-            . '&amp;server=99&amp;lang=en&amp;token=token" title="Jump to database &quot;'
+            . '&amp;server=99&amp;lang=en" title="Jump to database &quot;'
             . htmlspecialchars($database) . '&quot;.">'
             . htmlspecialchars($database) . '</a>',
             PMA\libraries\Util::getDbLink($database)
@@ -112,7 +103,7 @@ class PMA_GetDbLink_Test extends PHPUnit_Framework_TestCase
             )
             . '?db='
             . htmlspecialchars(urlencode($database))
-            . '&amp;server=99&amp;lang=en&amp;token=token" title="Jump to database &quot;'
+            . '&amp;server=99&amp;lang=en" title="Jump to database &quot;'
             . htmlspecialchars($database) . '&quot;.">'
             . htmlspecialchars($database) . '</a>',
             PMA\libraries\Util::getDbLink($database)

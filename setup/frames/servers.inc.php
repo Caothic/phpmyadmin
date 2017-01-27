@@ -8,6 +8,7 @@
 
 use PMA\libraries\config\ConfigFile;
 use PMA\libraries\config\FormDisplay;
+use PMA\libraries\URL;
 
 if (!defined('PHPMYADMIN')) {
     exit;
@@ -21,7 +22,7 @@ require_once './setup/lib/form_processing.lib.php';
 require './libraries/config/setup.forms.php';
 
 $mode = isset($_GET['mode']) ? $_GET['mode'] : null;
-$id = PMA_isValid($_GET['id'], 'numeric') ? $_GET['id'] : null;
+$id = PMA_isValid($_GET['id'], 'numeric') ? intval($_GET['id']) : null;
 
 /** @var ConfigFile $cf */
 $cf = $GLOBALS['ConfigFile'];
@@ -33,7 +34,7 @@ if ($mode == 'edit' && $server_exists) {
         . ' <small>(' . htmlspecialchars($cf->getServerDSN($id)) . ')</small>';
 } elseif ($mode == 'remove' && $server_exists) {
     $cf->removeServer($id);
-    header('Location: index.php' . PMA_URL_getCommon());
+    header('Location: index.php' . URL::getCommonRaw());
     exit;
 } elseif ($mode == 'revert' && $server_exists) {
     // handled by process_formset()
@@ -42,7 +43,7 @@ if ($mode == 'edit' && $server_exists) {
     $id = 0;
 }
 if (isset($page_title)) {
-    echo '<h2>' . $page_title . '</h2>';
+    echo '<h2>' , $page_title . '</h2>';
 }
 $form_display = new FormDisplay($cf);
 foreach ($forms['Servers'] as $form_name => $form) {

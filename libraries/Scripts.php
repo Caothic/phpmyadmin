@@ -7,6 +7,9 @@
  */
 namespace PMA\libraries;
 
+use PMA\libraries\URL;
+use PMA\libraries\Sanitize;
+
 /**
  * Collects information about which JavaScript
  * files and objects are necessary to render
@@ -30,14 +33,6 @@ class Scripts
      * @var array of strings
      */
     private $_code;
-    /**
-     * An array of event names to bind and javascript code
-     * snippets to fire for the corresponding events
-     *
-     * @access private
-     * @var array
-     */
-    private $_events;
 
     /**
      * Returns HTML code to include javascript file.
@@ -51,9 +46,9 @@ class Scripts
         $first_dynamic_scripts = "";
         $dynamic_scripts = "";
         $scripts = array();
-        $separator = PMA_URL_getArgSeparator();
+        $separator = URL::getArgSeparator();
         foreach ($files as $value) {
-            if (/*overload*/mb_strpos($value['filename'], "?") !== false) {
+            if (mb_strpos($value['filename'], "?") !== false) {
                 $file_name = $value['filename'] . $separator
                     . Header::getVersionParameter();
                 if ($value['before_statics'] === true) {
@@ -68,25 +63,15 @@ class Scripts
                 continue;
             }
             $include = true;
-            if ($value['conditional_ie'] !== false
-                && PMA_USR_BROWSER_AGENT === 'IE'
-            ) {
-                if ($value['conditional_ie'] === true) {
-                    $include = true;
-                } else if ($value['conditional_ie'] == PMA_USR_BROWSER_VER) {
-                    $include = true;
-                } else {
-                    $include = false;
-                }
-            }
             if ($include) {
                 $scripts[] = "scripts%5B%5D=" . $value['filename'];
             }
         }
-        $separator = PMA_URL_getArgSeparator();
+        $separator = URL::getArgSeparator();
         $static_scripts = '';
-        // Using chunks of 20 files to avoid too long URLs
-        $script_chunks = array_chunk($scripts, 20);
+        // Using chunks of 10 files to avoid too long URLs
+        // as some servers are set to 512 bytes URL limit
+        $script_chunks = array_chunk($scripts, 10);
         foreach ($script_chunks as $script_chunk) {
             $url = 'js/get_scripts.js.php?'
                 . implode($separator, $script_chunk)
@@ -109,7 +94,6 @@ class Scripts
     {
         $this->_files  = array();
         $this->_code   = '';
-        $this->_events = array();
 
     }
 
@@ -117,8 +101,6 @@ class Scripts
      * Adds a new file to the list of scripts
      *
      * @param string $filename       The name of the file to include
-     * @param bool   $conditional_ie Whether to wrap the script tag in
-     *                               conditional comments for IE
      * @param bool   $before_statics Whether this dynamic script should be
      *                               included before the static ones
      *
@@ -126,7 +108,6 @@ class Scripts
      */
     public function addFile(
         $filename,
-        $conditional_ie = false,
         $before_statics = false
     ) {
         $hash = md5($filename);
@@ -138,7 +119,6 @@ class Scripts
         $this->_files[$hash] = array(
             'has_onload' => $has_onload,
             'filename' => $filename,
-            'conditional_ie' => $conditional_ie,
             'before_statics' => $before_statics
         );
     }
@@ -146,16 +126,14 @@ class Scripts
     /**
      * Add new files to the list of scripts
      *
-     * @param array $filelist       The array of file names
-     * @param bool  $conditional_ie Whether to wrap the script tag in
-     *                              conditional comments for IE
+     * @param array $filelist The array of file names
      *
      * @return void
      */
-    public function addFiles($filelist, $conditional_ie = false)
+    public function addFiles($filelist)
     {
         foreach ($filelist as $filename) {
-            $this->addFile($filename, $conditional_ie);
+            $this->addFile($filename);
         }
     }
 
@@ -173,7 +151,6 @@ class Scripts
             || strpos($filename, 'codemirror') !== false
             || strpos($filename, 'messages.php') !== false
             || strpos($filename, 'ajax.js') !== false
-            || strpos($filename, 'navigation.js') !== false
             || strpos($filename, 'get_image.js.php') !== false
             || strpos($filename, 'cross_framing_protection.js') !== false
         ) {
@@ -196,24 +173,6 @@ class Scripts
     }
 
     /**
-     * Adds a new event to the list of events
-     *
-     * @param string $event    The name of the event to register
-     * @param string $function The code to execute when the event fires
-     *                         E.g: 'function () { doSomething(); }'
-     *                         or 'doSomething'
-     *
-     * @return void
-     */
-    public function addEvent($event, $function)
-    {
-        $this->_events[] = array(
-            'event' => $event,
-            'function' => $function
-        );
-    }
-
-    /**
      * Returns a list with filenames and a flag to indicate
      * whether to register onload events for this file
      *
@@ -227,13 +186,11 @@ class Scripts
             if (strpos($file['filename'], "?") !== false) {
                 continue;
             }
+            $retval[] = array(
+                'name' => $file['filename'],
+                'fire' => $file['has_onload']
+            );
 
-            if (! $file['conditional_ie'] || PMA_USR_BROWSER_AGENT == 'IE') {
-                $retval[] = array(
-                    'name' => $file['filename'],
-                    'fire' => $file['has_onload']
-                );
-            }
         }
         return $retval;
     }
@@ -257,7 +214,7 @@ class Scripts
         foreach ($this->_files as $file) {
             $code .= sprintf(
                 '.add("%s",%d)',
-                PMA_escapeJsString($file['filename']),
+                Sanitize::escapeJsString($file['filename']),
                 $file['has_onload'] ? 1 : 0
             );
         }
@@ -268,7 +225,7 @@ class Scripts
         foreach ($this->_files as $file) {
             if ($file['has_onload']) {
                 $code .= 'AJAX.fireOnload("';
-                $code .= PMA_escapeJsString($file['filename']);
+                $code .= Sanitize::escapeJsString($file['filename']);
                 $code .= '");';
             }
         }
@@ -278,13 +235,6 @@ class Scripts
         $retval .= '<script data-cfasync="false" type="text/javascript">';
         $retval .= "// <![CDATA[\n";
         $retval .= $this->_code;
-        foreach ($this->_events as $js_event) {
-            $retval .= sprintf(
-                "$(window).bind('%s', %s);\n",
-                $js_event['event'],
-                $js_event['function']
-            );
-        }
         $retval .= '// ]]>';
         $retval .= '</script>';
 

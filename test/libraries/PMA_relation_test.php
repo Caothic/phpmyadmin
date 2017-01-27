@@ -13,7 +13,6 @@ use PMA\libraries\Theme;
 
 
 
-require_once 'libraries/php-gettext/gettext.inc';
 require_once 'libraries/database_interface.inc.php';
 
 require_once 'libraries/relation.lib.php';
@@ -36,16 +35,14 @@ class PMA_Relation_Test extends PHPUnit_Framework_TestCase
     public function setUp()
     {
         $GLOBALS['server'] = 1;
+        $GLOBALS['db'] = 'db';
         $GLOBALS['cfg']['Server']['user'] = 'root';
         $GLOBALS['cfg']['Server']['pmadb'] = 'phpmyadmin';
         $GLOBALS['cfg']['ZeroConf'] = true;
-        $GLOBALS['cfg']['PmaAbsoluteUri'] = '';
         $_SESSION['relation'][$GLOBALS['server']] = "PMA_relation";
-        $_SESSION['PMA_Theme'] = new Theme();
         $_SESSION['relation'] = array();
 
         $GLOBALS['pmaThemePath'] = $_SESSION['PMA_Theme']->getPath();
-        $GLOBALS['pmaThemeImage'] = 'theme/';
         $GLOBALS['cfg']['ServerDefault'] = 0;
 
         include_once 'libraries/relation.lib.php';
@@ -121,20 +118,20 @@ class PMA_Relation_Test extends PHPUnit_Framework_TestCase
 
         //$cfg['Servers'][$i]['relation']
         $result = "\$cfg['Servers'][\$i]['pmadb']  ... </th><td class=\"right\">"
-            . "<font color=\"green\"><strong>OK</strong></font>";
+            . "<span style=\"color:green\"><strong>OK</strong></span>";
         $this->assertContains(
             $result,
             $retval
         );
         // $cfg['Servers'][$i]['relation']
         $result = "\$cfg['Servers'][\$i]['relation']  ... </th><td class=\"right\">"
-            . "<font color=\"red\"><strong>not OK</strong></font>";
+            . "<span style=\"color:red\"><strong>not OK</strong></span>";
         $this->assertContains(
             $result,
             $retval
         );
         // General relation features
-        $result = 'General relation features: <font color="red">Disabled</font>';
+        $result = 'General relation features: <span style="color:red">Disabled</span>';
         $this->assertContains(
             $result,
             $retval
@@ -142,13 +139,13 @@ class PMA_Relation_Test extends PHPUnit_Framework_TestCase
         // $cfg['Servers'][$i]['table_info']
         $result = "\$cfg['Servers'][\$i]['table_info']  ... </th>"
             . "<td class=\"right\">"
-            . "<font color=\"red\"><strong>not OK</strong></font>";
+            . "<span style=\"color:red\"><strong>not OK</strong></span>";
         $this->assertContains(
             $result,
             $retval
         );
         // Display Features:
-        $result = 'Display Features: <font color="red">Disabled</font>';
+        $result = 'Display Features: <span style="color:red">Disabled</span>';
         $this->assertContains(
             $result,
             $retval

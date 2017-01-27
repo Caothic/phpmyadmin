@@ -8,18 +8,18 @@
 use PMA\libraries\plugins\export\ExportHtmlword;
 
 require_once 'libraries/export.lib.php';
-require_once 'libraries/php-gettext/gettext.inc';
 require_once 'libraries/config.default.php';
 require_once 'libraries/relation.lib.php';
 require_once 'libraries/transformations.lib.php';
-require_once 'export.php';
+require_once 'test/PMATestCase.php';
+
 /**
  * tests for PMA\libraries\plugins\export\ExportHtmlword class
  *
  * @package PhpMyAdmin-test
  * @group medium
  */
-class ExportHtmlwordTest extends PHPUnit_Framework_TestCase
+class ExportHtmlwordTest extends PMATestCase
 {
     protected $object;
 
@@ -478,20 +478,15 @@ class ExportHtmlwordTest extends PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $dbi->expects($this->at(1))
+        $dbi->expects($this->exactly(2))
             ->method('fetchResult')
-            ->will($this->returnValue(array()));
-
-        $dbi->expects($this->at(6))
-            ->method('fetchResult')
-            ->will(
-                $this->returnValue(
-                    array(
-                        'fieldname' => array(
-                            'values' => 'test-',
-                            'transformation' => 'testfoo',
-                            'mimetype' => 'test<'
-                        )
+            ->willReturnOnConsecutiveCalls(
+                array(),
+                array(
+                    'fieldname' => array(
+                        'values' => 'test-',
+                        'transformation' => 'testfoo',
+                        'mimetype' => 'test<'
                     )
                 )
             );
@@ -526,6 +521,8 @@ class ExportHtmlwordTest extends PHPUnit_Framework_TestCase
                     )
                 )
             );
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
 
         $GLOBALS['dbi'] = $dbi;
 
@@ -572,29 +569,20 @@ class ExportHtmlwordTest extends PHPUnit_Framework_TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $dbi->expects($this->at(1))
+        $dbi->expects($this->exactly(2))
             ->method('fetchResult')
-            ->will(
-                $this->returnValue(
-                    array(
-                        'fieldname' => array(
-                            'foreign_table' => 'ftable',
-                            'foreign_field' => 'ffield'
-                        )
+            ->willReturnOnConsecutiveCalls(
+                array(
+                    'fieldname' => array(
+                        'foreign_table' => 'ftable',
+                        'foreign_field' => 'ffield'
                     )
-                )
-            );
-
-        $dbi->expects($this->at(6))
-            ->method('fetchResult')
-            ->will(
-                $this->returnValue(
-                    array(
-                        'field' => array(
-                            'values' => 'test-',
-                            'transformation' => 'testfoo',
-                            'mimetype' => 'test<'
-                        )
+                ),
+                array(
+                    'field' => array(
+                        'values' => 'test-',
+                        'transformation' => 'testfoo',
+                        'mimetype' => 'test<'
                     )
                 )
             );
@@ -630,6 +618,8 @@ class ExportHtmlwordTest extends PHPUnit_Framework_TestCase
                     )
                 )
             );
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
 
         $GLOBALS['dbi'] = $dbi;
 
@@ -699,6 +689,8 @@ class ExportHtmlwordTest extends PHPUnit_Framework_TestCase
                     )
                 )
             );
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
 
         $GLOBALS['dbi'] = $dbi;
 
@@ -874,8 +866,6 @@ class ExportHtmlwordTest extends PHPUnit_Framework_TestCase
      */
     public function testFormatOneColumnDefinition()
     {
-        $GLOBALS['cfg']['LimitChars'] = 40;
-
         $method = new ReflectionMethod(
             'PMA\libraries\plugins\export\ExportHtmlword', 'formatOneColumnDefinition'
         );

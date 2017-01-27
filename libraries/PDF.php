@@ -10,13 +10,6 @@ namespace PMA\libraries;
 use TCPDF;
 use TCPDF_FONTS;
 
-require_once TCPDF_INC;
-
-/**
- * PDF font to use.
- */
-define('PMA_PDF_FONT', 'DejaVuSans');
-
 /**
  * PDF export base class providing basic configuration.
  *
@@ -26,6 +19,11 @@ class PDF extends TCPDF
 {
     var $footerset;
     var $Alias = array();
+
+    /**
+     * PDF font to use.
+     */
+    const PMA_PDF_FONT = 'DejaVuSans';
 
     /**
      * Constructs PDF and configures standard parameters.
@@ -51,8 +49,8 @@ class PDF extends TCPDF
         $this->SetAuthor('phpMyAdmin ' . PMA_VERSION);
         $this->AddFont('DejaVuSans', '', 'dejavusans.php');
         $this->AddFont('DejaVuSans', 'B', 'dejavusansb.php');
-        $this->SetFont(PMA_PDF_FONT, '', 14);
-        $this->setFooterFont(array(PMA_PDF_FONT, '', 14));
+        $this->SetFont(PDF::PMA_PDF_FONT, '', 14);
+        $this->setFooterFont(array(PDF::PMA_PDF_FONT, '', 14));
     }
 
     /**
@@ -65,7 +63,7 @@ class PDF extends TCPDF
         // Check if footer for this page already exists
         if (!isset($this->footerset[$this->page])) {
             $this->SetY(-15);
-            $this->SetFont(PMA_PDF_FONT, '', 14);
+            $this->SetFont(PDF::PMA_PDF_FONT, '', 14);
             $this->Cell(
                 0, 6,
                 __('Page number:') . ' '
@@ -143,7 +141,7 @@ class PDF extends TCPDF
         PMA_downloadHeader(
             $filename,
             'application/pdf',
-            /*overload*/mb_strlen($pdfData)
+            strlen($pdfData)
         );
         echo $pdfData;
     }

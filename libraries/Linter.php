@@ -7,10 +7,10 @@
  */
 namespace PMA\libraries;
 
-use SqlParser\Lexer;
-use SqlParser\Parser;
-use SqlParser\UtfString;
-use SqlParser\Utils\Error as ParserError;
+use PhpMyAdmin\SqlParser\Lexer;
+use PhpMyAdmin\SqlParser\Parser;
+use PhpMyAdmin\SqlParser\UtfString;
+use PhpMyAdmin\SqlParser\Utils\Error as ParserError;
 
 /**
  * The linter itself.
@@ -38,7 +38,7 @@ class Linter
             $str = new UtfString($str);
         }
 
-        // The reason for using the '8bit' parameter is that the length
+        // The reason for using the strlen is that the length
         // required is the length in bytes, not characters.
         //
         // Given the following string: `????+`, where `?` represents a
@@ -51,7 +51,7 @@ class Linter
         // (which is actually a new line) aren't going to be processed at
         // all.
         $len = ($str instanceof UtfString) ?
-            $str->length() : mb_strlen($len, '8bit');
+            $str->length() : strlen($str);
 
         $lines = array(0);
         for ($i = 0; $i < $len; ++$i) {
@@ -92,7 +92,7 @@ class Linter
     public static function lint($query)
     {
         // Disabling lint for huge queries to save some resources.
-        if (/*overload*/mb_strlen($query) > 10000) {
+        if (mb_strlen($query) > 10000) {
             return array(
                 array(
                     'message' => __(
@@ -156,7 +156,7 @@ class Linter
 
             // Ending position of the string that caused the error.
             list($toLine, $toColumn) = static::findLineNumberAndColumn(
-                $lines, $error[3] + /*overload*/mb_strlen($error[2])
+                $lines, $error[3] + mb_strlen($error[2])
             );
 
             // Building the response.

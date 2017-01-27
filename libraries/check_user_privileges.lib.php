@@ -15,167 +15,42 @@ if (! defined('PHPMYADMIN')) {
 $GLOBALS['is_superuser'] = $GLOBALS['dbi']->isSuperuser();
 
 /**
- * Check if user has required privileges for
- * performing 'FLUSH PRIVILEGES' operation
+ * Extracts details from a result row of a SHOW GRANT query
  *
- * @return void
+ * @param string $row grant row
+ *
+ * @return array
  */
-function PMA_checkRequiredPrivilegesForFlushing()
+function PMA_getItemsFromShowGrantsRow($row)
 {
-
-    $res = $GLOBALS['dbi']->tryQuery(
-        'FLUSH PRIVILEGES'
+    $db_name_offset = mb_strpos($row, ' ON ') + 4;
+    $show_grants_dbname = mb_substr(
+        $row, $db_name_offset,
+        mb_strpos($row, '.', $db_name_offset) - $db_name_offset
     );
 
-    // Save the value
-    $GLOBALS['flush_priv'] = $res;
-}
+    $show_grants_dbname = PMA\libraries\Util::unQuote($show_grants_dbname, '`');
 
- /**
-  * Check if user has the required privileges according to some
-  * verification queries
-  *
-  * @param array $queries the SQL queries for verifications
-  *
-  * @return boolean
-  */
-function PMA_hasRequiredPrivileges($queries)
-{
-    $privs_available = true;
-    // FOR DB PRIVS
-    $select_privs_available = $GLOBALS['dbi']->tryQuery(
-        $queries['0select']
+    $show_grants_str    = mb_substr(
+        $row,
+        6,
+        (mb_strpos($row, ' ON ') - 6)
     );
 
-    $privs_available = $select_privs_available && $privs_available;
+    // extrac table from GRANT sytax
+    $tblname_start_offset = mb_strpos($row, '.') + 1;
+    $tblname_end_offset = mb_strpos($row, ' TO ');
 
-    if ($privs_available) {
-        $delete_privs_available = $GLOBALS['dbi']->tryQuery(
-            $queries['1delete']
-        );
-        $privs_available = $delete_privs_available && $privs_available;
-    }
-
-    if ($privs_available) {
-        $insert_privs_available = $GLOBALS['dbi']->tryQuery(
-            $queries['2insert']
-        );
-        // If successful test insert, delete the test row
-        if ($insert_privs_available) {
-            $GLOBALS['dbi']->tryQuery(
-                $queries['3delete']
-            );
-        }
-        $privs_available = $insert_privs_available && $privs_available;
-    }
-
-    if ($privs_available) {
-        $update_privs_available = $GLOBALS['dbi']->tryQuery(
-            $queries['4update']
-        );
-        $privs_available = $update_privs_available && $privs_available;
-    }
-
-    return $privs_available;
-}
-
-/**
- * Check if user has privileges on mysql.db
- *
- * @return boolean
- */
-function PMA_hasMysqlDbPrivileges()
-{
-    return PMA_hasRequiredPrivileges(
-        array(
-            '0select' => 'SELECT * FROM `mysql`.`db` LIMIT 1',
-            '1delete' => 'DELETE FROM `mysql`.`db` WHERE `host` = "" AND '
-                . '`Db` = "" AND `User` = "" LIMIT 1',
-            '2insert' => 'INSERT INTO `mysql`.`db`(`host`, `Db`, `User`) '
-                . 'VALUES("pma_test_host", "mysql", "pma_test_user")',
-            '3delete' => 'DELETE FROM `mysql`.`db` WHERE host = '
-                . '"pma_test_host" AND Db = "mysql" AND User = '
-                . '"pma_test_user" LIMIT 1',
-            '4update' => 'UPDATE `mysql`.`db` SET `host` = "" WHERE '
-                . '`host` = "" AND `Db` = "" AND `User` = "" LIMIT 1'
-        )
+    $show_grants_tblname = mb_substr(
+        $row, $tblname_start_offset,
+        $tblname_end_offset - $tblname_start_offset
     );
-}
+    $show_grants_tblname = PMA\libraries\Util::unQuote($show_grants_tblname, '`');
 
-/**
- * Check if user has privileges on mysql.columns_priv
- *
- * @return boolean
- */
-function PMA_hasMysqlColumnsPrivileges()
-{
-    return PMA_hasRequiredPrivileges(
-        array(
-            '0select' => 'SELECT * FROM `mysql`.`columns_priv` LIMIT 1',
-            '1delete' => 'DELETE FROM `mysql`.`columns_priv` '
-                . 'WHERE `host` = "" AND `Db` = "" AND `User` = "" LIMIT 1',
-            '2insert' => 'INSERT INTO `mysql`.`columns_priv`(`host`, `Db`, '
-                . '`User`, `Table_name`, `Column_name`) '
-                . 'VALUES("pma_test_host", "mysql", "pma_test_user", "", "")',
-            '3delete' => 'DELETE FROM `mysql`.`columns_priv` WHERE host = '
-                . '"pma_test_host" AND Db = "mysql" AND User = '
-                . '"pma_test_user" AND Table_name = "" AND Column_name = "" LIMIT 1',
-            '4update' => 'UPDATE `mysql`.`columns_priv` SET `host` = "" '
-                . 'WHERE `host` = "" AND `Db` = "" AND `User` = "" '
-                . 'AND Column_name = "" AND Table_name = "" LIMIT 1'
-        )
-    );
-}
-
-/**
- * Check if user has privileges on mysql.tables_priv
- *
- * @return boolean
- */
-function PMA_hasMysqlTablesPrivileges()
-{
-    return PMA_hasRequiredPrivileges(
-        array(
-            '0select' => 'SELECT * FROM `mysql`.`tables_priv` LIMIT 1',
-            '1delete' => 'DELETE FROM `mysql`.`tables_priv` WHERE `host` '
-                . '= "" AND `Db` = "" AND `User` = "" AND Table_name = "" LIMIT 1',
-            '2insert' => 'INSERT INTO `mysql`.`tables_priv`(`host`, `Db`, '
-                . '`User`, `Table_name`) VALUES("pma_test_host", "mysql", '
-                . '"pma_test_user", "")',
-            '3delete' => 'DELETE FROM `mysql`.`tables_priv` WHERE host = '
-                . '"pma_test_host" AND Db = "mysql" AND User = '
-                . '"pma_test_user" AND Table_name = "" LIMIT 1',
-            '4update' => 'UPDATE `mysql`.`tables_priv` SET `host` = "" '
-                . 'WHERE `host` = "" AND `Db` = "" AND `User` = "" '
-                . 'AND Table_name = "" LIMIT 1'
-        )
-    );
-}
-
-/**
- * Check if user has privileges on mysql.procs_priv
- *
- * @return boolean
- */
-function PMA_hasMysqlProcsPrivileges()
-{
-    return PMA_hasRequiredPrivileges(
-        array(
-            '0select' => 'SELECT * FROM `mysql`.`procs_priv` LIMIT 1',
-            '1delete' => 'DELETE FROM `mysql`.`procs_priv` WHERE `host` '
-                . '= "" AND `Db` = "" AND `User` = "" AND `Routine_name` = '
-                . '"" AND `Routine_type` = "" LIMIT 1',
-            '2insert' => 'INSERT INTO `mysql`.`procs_priv`(`host`, `Db`, '
-                . '`User`, `Routine_name`, `Routine_type`) '
-                . 'VALUES("pma_test_host", "mysql", "pma_test_user", "", "PROCEDURE")',
-            '3delete' => 'DELETE FROM `mysql`.`procs_priv` WHERE `host` = '
-                . '"pma_test_host" AND `Db` = "mysql" AND `User` = '
-                . '"pma_test_user" AND `Routine_name` = "" '
-                . 'AND `Routine_type` = "PROCEDURE" LIMIT 1',
-            '4update' => 'UPDATE `mysql`.`procs_priv` SET `host` = "" '
-                . 'WHERE `host` = "" AND `Db` = "" AND `User` = "" '
-                . 'AND `Routine_name` = "" LIMIT 1'
-        )
+    return array(
+        $show_grants_str,
+        $show_grants_dbname,
+        $show_grants_tblname
     );
 }
 
@@ -183,37 +58,67 @@ function PMA_hasMysqlProcsPrivileges()
  * Check if user has required privileges for
  * performing 'Adjust privileges' operations
  *
+ * @param string $show_grants_str     string containing grants for user
+ * @param string $show_grants_dbname  name of db extracted from grant string
+ * @param string $show_grants_tblname name of table extracted from grant string
+ *
  * @return void
  */
-function PMA_checkRequiredPrivilegesForAdjust()
-{
-    if (PMA\libraries\Util::cacheExists('db_priv')) {
-        $GLOBALS['db_priv'] = PMA\libraries\Util::cacheGet(
-            'db_priv'
-        );
-        $GLOBALS['col_priv'] = PMA\libraries\Util::cacheGet(
-            'col_priv'
-        );
-        $GLOBALS['table_priv'] = PMA\libraries\Util::cacheGet(
-            'table_priv'
-        );
-        $GLOBALS['proc_priv'] = PMA\libraries\Util::cacheGet(
-            'proc_priv'
-        );
-        return;
+function PMA_checkRequiredPrivilegesForAdjust(
+    $show_grants_str,
+    $show_grants_dbname,
+    $show_grants_tblname
+) {
+    // '... ALL PRIVILEGES ON *.* ...' OR '... ALL PRIVILEGES ON `mysql`.* ..'
+    // OR
+    // SELECT, INSERT, UPDATE, DELETE .... ON *.* OR `mysql`.*
+    if ($show_grants_str == 'ALL'
+        || $show_grants_str == 'ALL PRIVILEGES'
+        || (mb_strpos(
+                $show_grants_str, 'SELECT, INSERT, UPDATE, DELETE'
+            ) !== false)
+    ) {
+        if ($show_grants_dbname == '*'
+            && $show_grants_tblname == '*'
+        ) {
+            $GLOBALS['col_priv'] = true;
+            $GLOBALS['db_priv'] = true;
+            $GLOBALS['proc_priv'] = true;
+            $GLOBALS['table_priv'] = true;
+
+            if ($show_grants_str == 'ALL PRIVILEGES'
+                || $show_grants_str == 'ALL'
+            ) {
+                $GLOBALS['is_reload_priv'] = true;
+            }
+        }
+
+        // check for specific tables in `mysql` db
+        // Ex. '... ALL PRIVILEGES on `mysql`.`columns_priv` .. '
+        if ($show_grants_dbname == 'mysql') {
+            switch ($show_grants_tblname) {
+                case "columns_priv":
+                    $GLOBALS['col_priv'] = true;
+                    break;
+                case "db":
+                    $GLOBALS['db_priv'] = true;
+                    break;
+                case "procs_priv":
+                    $GLOBALS['proc_priv'] = true;
+                    break;
+                case "tables_priv":
+                    $GLOBALS['table_priv'] = true;
+                    break;
+                case "*":
+                    $GLOBALS['col_priv'] = true;
+                    $GLOBALS['db_priv'] = true;
+                    $GLOBALS['proc_priv'] = true;
+                    $GLOBALS['table_priv'] = true;
+                    break;
+                default:
+            }
+        }
     }
-
-    $GLOBALS['db_priv'] = PMA_hasMysqlDbPrivileges();
-    $GLOBALS['col_priv'] = PMA_hasMysqlColumnsPrivileges();
-    $GLOBALS['table_priv'] = PMA_hasMysqlTablesPrivileges();
-    $GLOBALS['proc_priv'] = PMA_hasMysqlProcsPrivileges();
-
-    // must also cacheUnset() them in
-    // libraries/plugins/auth/AuthenticationCookie.class.php
-    PMA\libraries\Util::cacheSet('proc_priv', $GLOBALS['proc_priv']);
-    PMA\libraries\Util::cacheSet('table_priv', $GLOBALS['table_priv']);
-    PMA\libraries\Util::cacheSet('col_priv', $GLOBALS['col_priv']);
-    PMA\libraries\Util::cacheSet('db_priv', $GLOBALS['db_priv']);
 }
 
 /**
@@ -226,7 +131,7 @@ function PMA_checkRequiredPrivilegesForAdjust()
  * detection
  *
  * @todo fix to get really all privileges, not only explicitly defined for this user
- * from MySQL manual: (http://dev.mysql.com/doc/refman/5.0/en/show-grants.html)
+ * from MySQL manual: (https://dev.mysql.com/doc/refman/5.0/en/show-grants.html)
  * SHOW GRANTS displays only the privileges granted explicitly to the named
  * account. Other privileges might be available to the account, but they are not
  * displayed. For example, if an anonymous account exists, the named account
@@ -252,6 +157,20 @@ function PMA_analyseShowGrant()
         $GLOBALS['dbs_to_test'] = PMA\libraries\Util::cacheGet(
             'dbs_to_test'
         );
+
+        $GLOBALS['db_priv'] = PMA\libraries\Util::cacheGet(
+            'db_priv'
+        );
+        $GLOBALS['col_priv'] = PMA\libraries\Util::cacheGet(
+            'col_priv'
+        );
+        $GLOBALS['table_priv'] = PMA\libraries\Util::cacheGet(
+            'table_priv'
+        );
+        $GLOBALS['proc_priv'] = PMA\libraries\Util::cacheGet(
+            'proc_priv'
+        );
+
         return;
     }
 
@@ -261,6 +180,10 @@ function PMA_analyseShowGrant()
     $GLOBALS['db_to_create']       = '';
     $GLOBALS['dbs_where_create_table_allowed'] = array();
     $GLOBALS['dbs_to_test']        = $GLOBALS['dbi']->getSystemSchemas();
+    $GLOBALS['proc_priv'] = false;
+    $GLOBALS['db_priv'] = false;
+    $GLOBALS['col_priv'] = false;
+    $GLOBALS['table_priv'] = false;
 
     $rs_usr = $GLOBALS['dbi']->tryQuery('SHOW GRANTS');
 
@@ -272,19 +195,11 @@ function PMA_analyseShowGrant()
     $re1 = '(^|[^\\\\])(\\\)+'; // escaped wildcards
 
     while ($row = $GLOBALS['dbi']->fetchRow($rs_usr)) {
-        // extract db from GRANT ... ON *.* or GRANT ... ON db.*
-        $db_name_offset = /*overload*/mb_strpos($row[0], ' ON ') + 4;
-        $show_grants_dbname = /*overload*/mb_substr(
-            $row[0], $db_name_offset,
-            /*overload*/mb_strpos($row[0], '.', $db_name_offset) - $db_name_offset
-        );
-        $show_grants_dbname = PMA\libraries\Util::unQuote($show_grants_dbname, '`');
-
-        $show_grants_str    = /*overload*/mb_substr(
-            $row[0],
-            6,
-            (/*overload*/mb_strpos($row[0], ' ON ') - 6)
-        );
+        list(
+            $show_grants_str,
+            $show_grants_dbname,
+            $show_grants_tblname
+        ) = PMA_getItemsFromShowGrantsRow($row[0]);
 
         if ($show_grants_dbname == '*') {
             if ($show_grants_str != 'USAGE') {
@@ -294,9 +209,18 @@ function PMA_analyseShowGrant()
             $GLOBALS['dbs_to_test'][] = $show_grants_dbname;
         }
 
-        if ($show_grants_str == 'RELOAD') {
+        if (
+            mb_strpos($show_grants_str,'RELOAD') !== false
+        ) {
             $GLOBALS['is_reload_priv'] = true;
         }
+
+        // check for the required privileges for adjust
+        PMA_checkRequiredPrivilegesForAdjust(
+            $show_grants_str,
+            $show_grants_dbname,
+            $show_grants_tblname
+        );
 
         /**
          * @todo if we find CREATE VIEW but not CREATE, do not offer
@@ -335,7 +259,7 @@ function PMA_analyseShowGrant()
                             '/' . $re1 . '(%|_)/', '\\1\\3', $dbname_to_test
                         )
                     )
-                    && /*overload*/mb_substr($GLOBALS['dbi']->getError(), 1, 4) != 1044)
+                    && mb_substr($GLOBALS['dbi']->getError(), 1, 4) != 1044)
                 ) {
                     /**
                      * Do not handle the underscore wildcard
@@ -360,6 +284,7 @@ function PMA_analyseShowGrant()
                 } // end if
             } // end elseif
         } // end if
+
     } // end while
 
     $GLOBALS['dbi']->freeResult($rs_usr);
@@ -374,21 +299,24 @@ function PMA_analyseShowGrant()
         $GLOBALS['dbs_where_create_table_allowed']
     );
     PMA\libraries\Util::cacheSet('dbs_to_test', $GLOBALS['dbs_to_test']);
+
+    PMA\libraries\Util::cacheSet('proc_priv', $GLOBALS['proc_priv']);
+    PMA\libraries\Util::cacheSet('table_priv', $GLOBALS['table_priv']);
+    PMA\libraries\Util::cacheSet('col_priv', $GLOBALS['col_priv']);
+    PMA\libraries\Util::cacheSet('db_priv', $GLOBALS['db_priv']);
 } // end function
 
-$user = $GLOBALS['dbi']->fetchValue("SELECT CURRENT_USER();");
-if ($user == '@') { // MySQL is started with --skip-grant-tables
+list($username, $hostname) = $GLOBALS['dbi']->getCurrentUserAndHost();
+if ($username === '') { // MySQL is started with --skip-grant-tables
     $GLOBALS['is_create_db_priv'] = true;
     $GLOBALS['is_reload_priv']    = true;
     $GLOBALS['db_to_create']      = '';
     $GLOBALS['dbs_where_create_table_allowed'] = array('*');
     $GLOBALS['dbs_to_test']       = false;
+    $GLOBALS['db_priv'] = true;
+    $GLOBALS['col_priv'] = true;
+    $GLOBALS['table_priv'] = true;
+    $GLOBALS['proc_priv'] = true;
 } else {
     PMA_analyseShowGrant();
 }
-
-// Check if privileges to 'mysql'.col_privs, 'mysql'.db,
-// 'mysql'.table_privs, 'mysql'.proc_privs and privileges for
-// flushing the privileges are available
-PMA_checkRequiredPrivilegesForFlushing();
-PMA_checkRequiredPrivilegesForAdjust();

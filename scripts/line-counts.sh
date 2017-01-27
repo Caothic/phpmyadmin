@@ -1,4 +1,11 @@
 #!/bin/bash
+
+# Do not run as CGI
+if [ -n "$GATEWAY_INTERFACE" ] ; then
+    echo 'Can not invoke as CGI!'
+    exit 1
+fi
+
 cat > js/line_counts.php <<EOF
 <?php
 /* vim: set expandtab sw=4 ts=4 sts=4: */
@@ -20,7 +27,7 @@ php_code=""
 for file in `find js -name '*.js'` ; do
   lc=`wc -l $file | sed 's/\([0-9]*\).*/\1/'`
   file=${file:3}
-  entry="\$LINE_COUNT[\"$file\"] = $lc;"
+  entry="\$LINE_COUNT['$file'] = $lc;"
   php_code="$php_code\n$entry"
 done
 echo -e $php_code >> js/line_counts.php

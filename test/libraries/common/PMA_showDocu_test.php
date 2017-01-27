@@ -14,7 +14,6 @@ use PMA\libraries\Theme;
 
 
 
-require_once 'libraries/php-gettext/gettext.inc';
 
 /**
  ** Test for PMA\libraries\Util::showDocu from Util.php
@@ -31,7 +30,6 @@ class PMA_ShowDocu_Test extends PHPUnit_Framework_TestCase
      */
     function setup()
     {
-        $_SESSION['PMA_Theme'] = Theme::load('./themes/pmahomme');
         $GLOBALS['server'] = '99';
         $GLOBALS['cfg']['ServerDefault'] = 1;
     }
@@ -44,7 +42,7 @@ class PMA_ShowDocu_Test extends PHPUnit_Framework_TestCase
     function testShowDocu()
     {
         $this->assertEquals(
-            '<a href="./url.php?url=http%3A%2F%2Fdocs.phpmyadmin.net%2Fen%2Flatest%2Fpage.html%23anchor" target="documentation"><img src="themes/dot.gif" title="Documentation" alt="Documentation" class="icon ic_b_help" /></a>',
+            '<a href="./url.php?url=https%3A%2F%2Fdocs.phpmyadmin.net%2Fen%2Flatest%2Fpage.html%23anchor" target="documentation"><img src="themes/dot.gif" title="Documentation" alt="Documentation" class="icon ic_b_help" /></a>',
             PMA\libraries\Util::showDocu('page', 'anchor')
         );
 

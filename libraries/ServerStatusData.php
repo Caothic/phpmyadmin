@@ -8,6 +8,8 @@
  */
 namespace PMA\libraries;
 
+use PMA\libraries\URL;
+
 /**
  * This class provides data about the server status
  *
@@ -142,13 +144,13 @@ class ServerStatusData
         // variable or section name => (name => url)
 
         $links['table'][__('Flush (close) all tables')] = $this->selfUrl
-            . PMA_URL_getCommon(
+            . URL::getCommon(
                 array(
                     'flush' => 'TABLES'
                 )
             );
         $links['table'][__('Show open tables')]
-            = 'sql.php' . PMA_URL_getCommon(
+            = 'sql.php' . URL::getCommon(
                 array(
                     'sql_query' => 'SHOW OPEN TABLES',
                     'goto' => $this->selfUrl,
@@ -157,7 +159,7 @@ class ServerStatusData
 
         if ($GLOBALS['replication_info']['master']['status']) {
             $links['repl'][__('Show slave hosts')]
-                = 'sql.php' . PMA_URL_getCommon(
+                = 'sql.php' . URL::getCommon(
                     array(
                         'sql_query' => 'SHOW SLAVE HOSTS',
                         'goto' => $this->selfUrl,
@@ -173,7 +175,7 @@ class ServerStatusData
 
         $links['qcache'][__('Flush query cache')]
             = $this->selfUrl
-            . PMA_URL_getCommon(
+            . URL::getCommon(
                 array(
                     'flush' => 'QUERY CACHE'
                 )
@@ -189,11 +191,10 @@ class ServerStatusData
         $links['Slow_queries']['doc'] = 'slow_query_log';
 
         $links['innodb'][__('Variables')]
-            = 'server_engines.php?engine=InnoDB&amp;'
-            . PMA_URL_getCommon(array(), 'html', '');
+            = 'server_engines.php?' . URL::getCommon(array('engine' => 'InnoDB'));
         $links['innodb'][__('InnoDB Status')]
             = 'server_engines.php'
-            . PMA_URL_getCommon(
+            . URL::getCommon(
                 array(
                     'engine' => 'InnoDB',
                     'page' => 'Status'
@@ -218,6 +219,7 @@ class ServerStatusData
         if (isset($server_status['Key_blocks_unused'])
             && isset($server_variables['key_cache_block_size'])
             && isset($server_variables['key_buffer_size'])
+            && $server_variables['key_buffer_size'] != 0
         ) {
             $server_status['Key_buffer_fraction_%']
                 = 100
@@ -227,6 +229,7 @@ class ServerStatusData
                 * 100;
         } elseif (isset($server_status['Key_blocks_used'])
             && isset($server_variables['key_buffer_size'])
+            && $server_variables['key_buffer_size'] != 0
         ) {
             $server_status['Key_buffer_fraction_%']
                 = $server_status['Key_blocks_used']
@@ -286,7 +289,7 @@ class ServerStatusData
         foreach ($server_status as $name => $value) {
             $section_found = false;
             foreach ($allocations as $filter => $section) {
-                if (/*overload*/mb_strpos($name, $filter) !== false) {
+                if (mb_strpos($name, $filter) !== false) {
                     $allocationMap[$name] = $section;
                     $sectionUsed[$section] = true;
                     $section_found = true;
@@ -369,7 +372,7 @@ class ServerStatusData
 
         // Set all class properties
         $this->db_isLocal = false;
-        $serverHostToLower = /*overload*/mb_strtolower(
+        $serverHostToLower = mb_strtolower(
             $GLOBALS['cfg']['Server']['host']
         );
         if ($serverHostToLower === 'localhost'
@@ -416,7 +419,7 @@ class ServerStatusData
      */
     public function getMenuHtml()
     {
-        $url_params = PMA_URL_getCommon();
+        $url_params = URL::getCommon();
         $items = array(
             array(
                 'name' => __('Server'),

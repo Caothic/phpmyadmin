@@ -9,10 +9,9 @@
  * Include to test.
  */
 
-require_once 'libraries/php-gettext/gettext.inc';
-require_once 'libraries/core.lib.php';
 require_once 'libraries/database_interface.inc.php';
 require_once 'libraries/relation.lib.php';
+require_once 'test/PMATestCase.php';
 
 use PMA\libraries\DbQbe;
 
@@ -21,7 +20,7 @@ use PMA\libraries\DbQbe;
  *
  *  @package PhpMyAdmin-test
  */
-class DbQbeTest extends PHPUnit_Framework_TestCase
+class DbQbeTest extends PMATestCase
 {
     /**
      * @access protected
@@ -73,6 +72,7 @@ class DbQbeTest extends PHPUnit_Framework_TestCase
      */
     protected function tearDown()
     {
+        parent::tearDown();
         unset($this->object);
     }
 
@@ -119,7 +119,7 @@ class DbQbeTest extends PHPUnit_Framework_TestCase
     public function testGetSortRow()
     {
         $this->assertEquals(
-            '<tr class="even noclick"><th>Sort:</th><td class="center">'
+            '<tr class="noclick"><th>Sort:</th><td class="center">'
             . '<select style="width: 12ex" name="criteriaSort[0]" size="1">'
             . '<option value="">&nbsp;</option><option value="ASC">Ascending'
             . '</option><option value="DESC">Descending</option></select></td>'
@@ -145,7 +145,7 @@ class DbQbeTest extends PHPUnit_Framework_TestCase
     public function testGetShowRow()
     {
         $this->assertEquals(
-            '<tr class="odd noclick"><th>Show:</th><td class="center"><input type'
+            '<tr class="noclick"><th>Show:</th><td class="center"><input type'
             . '="checkbox" name="criteriaShow[0]" /></td><td class="center">'
             . '<input type="checkbox" name="criteriaShow[1]" /></td><td '
             . 'class="center"><input type="checkbox" name="criteriaShow[2]" />'
@@ -165,7 +165,7 @@ class DbQbeTest extends PHPUnit_Framework_TestCase
     public function testGetCriteriaInputboxRow()
     {
         $this->assertEquals(
-            '<tr class="even noclick"><th>Criteria:</th><td class="center">'
+            '<tr class="noclick"><th>Criteria:</th><td class="center">'
             . '<input type="hidden" name="prev_criteria[0]" value="" />'
             . '<input type="text" name="criteria[0]" value="" class="textfield" '
             . 'style="width: 12ex" size="20" /></td><td class="center">'
@@ -259,7 +259,7 @@ class DbQbeTest extends PHPUnit_Framework_TestCase
     public function testGetModifyColumnsRow()
     {
         $this->assertEquals(
-            '<tr class="even noclick"><th>Modify:</th><td class="center"><strong>'
+            '<tr class="noclick"><th>Modify:</th><td class="center"><strong>'
             . 'Or:</strong><input type="radio" name="criteriaAndOrColumn[0]" value'
             . '="or" />&nbsp;&nbsp;<strong>And:</strong><input type="radio" name='
             . '"criteriaAndOrColumn[0]" value="and" checked="checked" /><br />Ins'
@@ -336,7 +336,7 @@ class DbQbeTest extends PHPUnit_Framework_TestCase
     {
         $GLOBALS['cell_align_right'] = 'cellAlign';
         $this->assertEquals(
-            '<tr class="odd noclick"><td class="cellAlign nowrap"><!-- Row controls'
+            '<tr class="noclick"><td class="cellAlign nowrap"><!-- Row controls'
             . ' --><table class="nospacing nopadding"><tr><td class="cellAlign '
             . 'nowrap"><small>Ins:</small><input type="checkbox" name="'
             . 'criteriaRowInsert[0]" /></td><td class="cellAlign"><strong>And:'
@@ -513,7 +513,8 @@ class DbQbeTest extends PHPUnit_Framework_TestCase
         $this->assertEquals(
             '`table1`',
             $this->_callProtectedFunction(
-                '_getFromClause', array()
+                '_getFromClause',
+                array(array('`table1`.`id`'))
             )
         );
     }
@@ -536,7 +537,7 @@ class DbQbeTest extends PHPUnit_Framework_TestCase
 ',
             $this->_callProtectedFunction(
                 '_getSQLQuery',
-                array()
+                array(array('`table1`.`id`'))
             )
         );
     }

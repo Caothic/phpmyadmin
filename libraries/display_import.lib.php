@@ -8,13 +8,12 @@
  *
  * @package PhpMyAdmin
  */
-
+use PMA\libraries\Charsets;
+use PMA\libraries\Encoding;
 use PMA\libraries\Message;
 use PMA\libraries\plugins\ImportPlugin;
-
-if (! defined('PHPMYADMIN')) {
-    exit;
-}
+use PMA\libraries\URL;
+use PMA\libraries\Sanitize;
 
 /**
  * Prints Html For Display Import Hidden Input
@@ -29,11 +28,11 @@ function PMA_getHtmlForHiddenInputs($import_type, $db, $table)
 {
     $html  = '';
     if ($import_type == 'server') {
-        $html .= PMA_URL_getHiddenInputs('', '', 1);
+        $html .= URL::getHiddenInputs('', '', 1);
     } elseif ($import_type == 'database') {
-        $html .= PMA_URL_getHiddenInputs($db, '', 1);
+        $html .= URL::getHiddenInputs($db, '', 1);
     } else {
-        $html .= PMA_URL_getHiddenInputs($db, $table, 1);
+        $html .= URL::getHiddenInputs($db, $table, 1);
     }
     $html .= '    <input type="hidden" name="import_type" value="'
         . $import_type . '" />' . "\n";
@@ -69,7 +68,7 @@ function PMA_getHtmlForImportJS($upload_id)
     } else { // no plugin available
         $image_tag = '<img src="' . $GLOBALS['pmaThemeImage']
             . 'ajax_clock_small.gif" width="16" height="16" alt="ajax clock" /> '
-            . PMA_jsFormat(
+            . Sanitize::jsFormat(
                 __(
                     'Please be patient, the file is being uploaded. '
                     . 'Details about the upload are not available.'
@@ -178,10 +177,9 @@ function PMA_getHtmlForImportCharset()
     global $cfg;
     $html = '       <div class="formelementrow" id="charaset_of_file">';
     // charset of file
-    if ($GLOBALS['PMA_recoding_engine'] != PMA_CHARSET_NONE) {
+    if (Encoding::isSupported()) {
         $html .= '<label for="charset_of_file">' . __('Character set of the file:')
             . '</label>';
-        reset($cfg['AvailableCharsets']);
         $html .= '<select id="charset_of_file" name="charset_of_file" size="1">';
         foreach ($cfg['AvailableCharsets'] as $temp_charset) {
             $html .= '<option value="' . htmlentities($temp_charset) .  '"';
@@ -196,8 +194,7 @@ function PMA_getHtmlForImportCharset()
     } else {
         $html .= '<label for="charset_of_file">' . __('Character set of the file:')
             . '</label>' . "\n";
-        $html .= PMA_generateCharsetDropdownBox(
-            PMA_CSDROPDOWN_CHARSET,
+        $html .= Charsets::getCharsetDropdownBox(
             'charset_of_file',
             'charset_of_file',
             'utf8',
@@ -315,8 +312,7 @@ function PMA_getHtmlForImportOptionsPartialImport($timeout_passed, $offset)
         $html .= '        <div class="formelementrow">';
         $html .= '            <label for="text_skip_queries">'
             .  __(
-                'Skip this number of queries (for SQL) or lines (for other '
-                . 'formats), starting from the first one:'
+                'Skip this number of queries (for SQL) starting from the first one:'
             )
             . '</label>';
         $html .= '            <input type="number" name="skip_queries" value="'
@@ -379,11 +375,11 @@ function PMA_getHtmlForImportOptionsFormat($import_list)
     $html .= '    </div>';
     $html .= '        <div class="clearfloat"></div>';
 
-    // Encoding setting form appended by Y.Kawada
-    if (function_exists('PMA_Kanji_encodingForm')) {
+    // Japanese encoding setting
+    if (Encoding::canConvertKanji()) {
         $html .= '        <div class="importoptions" id="kanji_encoding">';
         $html .= '            <h3>' . __('Encoding Conversion:') . '</h3>';
-        $html .= PMA_Kanji_encodingForm();
+        $html .= Encoding::kanjiEncodingForm();
         $html .= '        </div>';
 
     }
@@ -481,8 +477,8 @@ function PMA_getHtmlForImportWithPlugin($upload_id)
 {
     //some variable for javascript
     $ajax_url = "import_status.php?id=" . $upload_id . "&"
-        . PMA_URL_getCommon(array('import_status'=>1), 'text');
-    $promot_str = PMA_jsFormat(
+        . URL::getCommonRaw(array('import_status'=>1));
+    $promot_str = Sanitize::jsFormat(
         __(
             'The file being uploaded is probably larger than '
             . 'the maximum allowed size or this is a known bug in webkit '
@@ -490,16 +486,16 @@ function PMA_getHtmlForImportWithPlugin($upload_id)
         ),
         false
     );
-    $statustext_str = PMA_escapeJsString(__('%s of %s'));
-    $upload_str = PMA_jsFormat(__('Uploading your import file…'), false);
-    $second_str = PMA_jsFormat(__('%s/sec.'), false);
-    $remaining_min = PMA_jsFormat(__('About %MIN min. %SEC sec. remaining.'), false);
-    $remaining_second = PMA_jsFormat(__('About %SEC sec. remaining.'), false);
-    $processed_str = PMA_jsFormat(
+    $statustext_str = Sanitize::escapeJsString(__('%s of %s'));
+    $upload_str = Sanitize::jsFormat(__('Uploading your import file…'), false);
+    $second_str = Sanitize::jsFormat(__('%s/sec.'), false);
+    $remaining_min = Sanitize::jsFormat(__('About %MIN min. %SEC sec. remaining.'), false);
+    $remaining_second = Sanitize::jsFormat(__('About %SEC sec. remaining.'), false);
+    $processed_str = Sanitize::jsFormat(
         __('The file is being processed, please be patient.'),
         false
     );
-    $import_url = PMA_URL_getCommon(array('import_status'=>1), 'text');
+    $import_url = URL::getCommonRaw(array('import_status'=>1));
 
     //start output
     $html  = 'var finished = false; ';
@@ -647,8 +643,12 @@ function PMA_getImportDisplay($import_type, $db, $table, $max_upload_size)
     global $SESSION_KEY;
     include_once './libraries/file_listing.lib.php';
     include_once './libraries/plugin_interface.lib.php';
-    // this one generates also some globals
+
     include_once './libraries/display_import_ajax.lib.php';
+    list(
+        $SESSION_KEY,
+        $upload_id,
+    ) = PMA_uploadProgressSetup();
 
     /* Scan for plugins */
     /* @var $import_list ImportPlugin[] */
@@ -669,7 +669,7 @@ function PMA_getImportDisplay($import_type, $db, $table, $max_upload_size)
     }
 
     if (PMA_isValid($_REQUEST['offset'], 'numeric')) {
-        $offset = $_REQUEST['offset'];
+        $offset = intval($_REQUEST['offset']);
     }
     if (isset($_REQUEST['timeout_passed'])) {
         $timeout_passed = $_REQUEST['timeout_passed'];

@@ -11,14 +11,14 @@ use PMA\libraries\config\ConfigFile;
 use PMA\libraries\config\Form;
 use PMA\libraries\Theme;
 
-require_once 'libraries/php-gettext/gettext.inc';
+require_once 'test/PMATestCase.php';
 
 /**
  * Tests for PMA_Form class
  *
  * @package PhpMyAdmin-test
  */
-class FormTest extends PHPUnit_Framework_TestCase
+class FormTest extends PMATestCase
 {
     /**
      * @var Form
@@ -32,9 +32,7 @@ class FormTest extends PHPUnit_Framework_TestCase
      */
     function setup()
     {
-        $_SESSION['PMA_Theme'] = new Theme();
         $GLOBALS['pmaThemePath'] = $_SESSION['PMA_Theme']->getPath();
-        $GLOBALS['pmaThemeImage'] = 'theme/';
         $GLOBALS['PMA_Config'] = new Config();
         $GLOBALS['PMA_Config']->enableBc();
         $GLOBALS['server'] = 0;

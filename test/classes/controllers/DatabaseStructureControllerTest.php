@@ -11,11 +11,12 @@
 /*
  * Include to test.
  */
-use PMA\libraries\controllers\DatabaseStructureController;
+use PMA\libraries\controllers\database\DatabaseStructureController;
 use PMA\libraries\di\Container;
 use PMA\libraries\Table;
 use PMA\libraries\Theme;
 
+require_once 'test/PMATestCase.php';
 require_once 'libraries/database_interface.inc.php';
 require_once 'test/libraries/stubs/ResponseStub.php';
 
@@ -26,12 +27,12 @@ require_once 'test/libraries/stubs/ResponseStub.php';
  *
  * @package PhpMyAdmin-test
  */
-class DatabaseStructureControllerTest extends PHPUnit_Framework_TestCase
+class DatabaseStructureControllerTest extends PMATestCase
 {
     /**
      * @var \PMA\Test\Stubs\Response
      */
-    private $response;
+    private $_response;
 
     /**
      * Prepares environment for the test.
@@ -45,23 +46,16 @@ class DatabaseStructureControllerTest extends PHPUnit_Framework_TestCase
         $_REQUEST['pos'] = 3;
 
         //$GLOBALS
-        $GLOBALS['cfg']['MaxRows'] = 10;
         $GLOBALS['server'] = 1;
-        $GLOBALS['cfg']['ServerDefault'] = "server";
-        $GLOBALS['cfg']['RememberSorting'] = true;
-        $GLOBALS['cfg']['SQP'] = array();
-        $GLOBALS['cfg']['MaxCharactersInDisplayedSQL'] = 1000;
-        $GLOBALS['cfg']['ShowSQL'] = true;
-        $GLOBALS['cfg']['TableNavigationLinksMode'] = 'icons';
-        $GLOBALS['cfg']['LimitChars'] = 100;
         $GLOBALS['cfg']['Server']['DisableIS'] = false;
 
         $GLOBALS['table'] = "table";
-        $GLOBALS['pmaThemeImage'] = 'image';
 
         //$_SESSION
-        $_SESSION['PMA_Theme'] = Theme::load('./themes/pmahomme');
-        $_SESSION['PMA_Theme'] = new Theme();
+
+        if (!defined('PMA_USR_BROWSER_AGENT')) {
+            define('PMA_USR_BROWSER_AGENT', 'Other');
+        }
 
         $table = $this->getMockBuilder('PMA\libraries\Table')
             ->disableOriginalConstructor()
@@ -84,8 +78,8 @@ class DatabaseStructureControllerTest extends PHPUnit_Framework_TestCase
         $container->set('db', 'db');
         $container->set('table', 'table');
         $container->set('dbi', $GLOBALS['dbi']);
-        $this->response = new \PMA\Test\Stubs\Response();
-        $container->set('PMA\libraries\Response', $this->response);
+        $this->_response = new \PMA\Test\Stubs\Response();
+        $container->set('PMA\libraries\Response', $this->_response);
         $container->alias('response', 'PMA\libraries\Response');
     }
 
@@ -105,15 +99,16 @@ class DatabaseStructureControllerTest extends PHPUnit_Framework_TestCase
         $container->set('PMA\libraries\Response', $response);
         $container->alias('response', 'PMA\libraries\Response');
 
-        $class = new ReflectionClass('PMA\libraries\controllers\DatabaseStructureController');
+        $class = new ReflectionClass('PMA\libraries\controllers\database\DatabaseStructureController');
         $method = $class->getMethod('getValuesForInnodbTable');
         $method->setAccessible(true);
-        // Showing statistics
-        $is_show_stats = true;
         $ctrl = new DatabaseStructureController(
-            null, null, null, null,
-            null, null, $is_show_stats
+            $GLOBALS['db'], null
         );
+        // Showing statistics
+        $property = $class->getProperty('_is_show_stats');
+        $property->setAccessible(true);
+        $property->setValue($ctrl, true);
 
         $GLOBALS['cfg']['MaxExactCount'] = 10;
         $current_table = array(
@@ -154,8 +149,7 @@ class DatabaseStructureControllerTest extends PHPUnit_Framework_TestCase
         // Not showing statistics
         $is_show_stats = false;
         $ctrl = new DatabaseStructureController(
-            null, null, null, null,
-            null, null, $is_show_stats
+            $GLOBALS['db'], null
         );
 
         $current_table['ENGINE'] = 'InnoDB';
@@ -191,16 +185,20 @@ class DatabaseStructureControllerTest extends PHPUnit_Framework_TestCase
      */
     public function testGetValuesForAriaTable()
     {
-        $class = new ReflectionClass('PMA\libraries\controllers\DatabaseStructureController');
+        $class = new ReflectionClass('PMA\libraries\controllers\database\DatabaseStructureController');
         $method = $class->getMethod('getValuesForAriaTable');
         $method->setAccessible(true);
 
-        $db_is_system_schema = true;
-        $is_show_stats = true;
         $ctrl = new DatabaseStructureController(
-            null, null, null, $db_is_system_schema,
-            null, null, $is_show_stats
+            $GLOBALS['db'], null
         );
+        // Showing statistics
+        $property = $class->getProperty('_is_show_stats');
+        $property->setAccessible(true);
+        $property->setValue($ctrl, true);
+        $property = $class->getProperty('_db_is_system_schema');
+        $property->setAccessible(true);
+        $property->setValue($ctrl, true);
 
         $current_table = array(
             'Data_length'  => 16384,
@@ -215,7 +213,7 @@ class DatabaseStructureControllerTest extends PHPUnit_Framework_TestCase
             $current_table['Rows']
         );
         $this->assertEquals(
-            doubleval(16384),
+            16384,
             $sum_size
         );
         $this->assertEquals(
@@ -230,8 +228,7 @@ class DatabaseStructureControllerTest extends PHPUnit_Framework_TestCase
 
         $is_show_stats = false;
         $ctrl = new DatabaseStructureController(
-            null, null, null, $db_is_system_schema,
-            null, null, $is_show_stats
+            $GLOBALS['db'], null
         );
         list($current_table,,,,,, $sum_size)
             = $method->invokeArgs($ctrl, array($current_table, 0, 0, 0, 0, 0, 0));
@@ -239,7 +236,7 @@ class DatabaseStructureControllerTest extends PHPUnit_Framework_TestCase
 
         $db_is_system_schema = false;
         $ctrl = new DatabaseStructureController(
-            null, null, null, $db_is_system_schema, null, null, $is_show_stats
+            $GLOBALS['db'], null
         );
         list($current_table,,,,,,)
             = $method->invokeArgs($ctrl, array($current_table, 0, 0, 0, 0, 0, 0,));
@@ -254,18 +251,12 @@ class DatabaseStructureControllerTest extends PHPUnit_Framework_TestCase
      */
     public function testHasTable()
     {
-        $class = new ReflectionClass('PMA\libraries\controllers\DatabaseStructureController');
+        $class = new ReflectionClass('PMA\libraries\controllers\database\DatabaseStructureController');
         $method = $class->getMethod('hasTable');
         $method->setAccessible(true);
 
         $ctrl = new DatabaseStructureController(
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
+            $GLOBALS['db'], null
         );
 
         // When parameter $db is empty
@@ -301,18 +292,12 @@ class DatabaseStructureControllerTest extends PHPUnit_Framework_TestCase
      */
     public function testCheckFavoriteTable()
     {
-        $class = new ReflectionClass('PMA\libraries\controllers\DatabaseStructureController');
+        $class = new ReflectionClass('PMA\libraries\controllers\database\DatabaseStructureController');
         $method = $class->getMethod('checkFavoriteTable');
         $method->setAccessible(true);
 
         $ctrl = new DatabaseStructureController(
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
+            $GLOBALS['db'], null
         );
 
         $_SESSION['tmpval']['favorite_tables'][$GLOBALS['server']] = array(
@@ -353,22 +338,24 @@ class DatabaseStructureControllerTest extends PHPUnit_Framework_TestCase
                 )
             );
 
-        $class = new ReflectionClass('PMA\libraries\controllers\DatabaseStructureController');
+        $class = new ReflectionClass('PMA\libraries\controllers\database\DatabaseStructureController');
         $method = $class->getMethod('synchronizeFavoriteTables');
         $method->setAccessible(true);
 
         $ctrl = new DatabaseStructureController(
-            null, null, null, null, null, null, null
+            $GLOBALS['db'], null
         );
 
         // The user hash for test
         $user = 'abcdefg';
-        $favorite_table[$user] = array(
+        $favorite_table = array(
+            $user => array(
                 array('db' => 'db', 'table' => 'table')
+            ),
         );
 
         $method->invokeArgs($ctrl, array($fav_instance, $user, $favorite_table));
-        $json = $this->response->getJSONResult();
+        $json = $this->_response->getJSONResult();
 
         $this->assertEquals(json_encode($favorite_table), $json['favorite_tables']);
         $this->assertArrayHasKey('list', $json);
@@ -385,17 +372,15 @@ class DatabaseStructureControllerTest extends PHPUnit_Framework_TestCase
         $_REQUEST['table'] = 'table';
 
         $ctrl = new DatabaseStructureController(
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
+            $GLOBALS['db'], null
         );
+        // Showing statistics
+        $class = new ReflectionClass('PMA\libraries\controllers\database\DatabaseStructureController');
+        $property = $class->getProperty('_tables');
+        $property->setAccessible(true);
 
         $ctrl->handleRealRowCountRequestAction();
-        $json = $this->response->getJSONResult();
+        $json = $this->_response->getJSONResult();
         $this->assertEquals(
             6,
             $json['real_row_count']
@@ -403,13 +388,16 @@ class DatabaseStructureControllerTest extends PHPUnit_Framework_TestCase
 
         // Fall into another branch
         $_REQUEST['real_row_count_all'] = 'abc';
-        $GLOBALS['tables'] = array(
+        $property->setValue(
+            $ctrl,
             array(
-                'TABLE_NAME' => 'table'
+                array(
+                    'TABLE_NAME' => 'table'
+                )
             )
         );
         $ctrl->handleRealRowCountRequestAction();
-        $json = $this->response->getJSONResult();
+        $json = $this->_response->getJSONResult();
 
         $expected_result = array(
             array(

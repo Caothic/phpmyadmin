@@ -279,7 +279,7 @@ class TableRelationController extends TableController
         ) {
             $this->response->addHTML(
                 Util::getMessage(
-                    __('Internal relations were successfully updated.'),
+                    __('Internal relationships were successfully updated.'),
                     '', 'success'
                 )
             );
@@ -340,7 +340,7 @@ class TableRelationController extends TableController
 
             while ($row = $this->dbi->fetchArray($tables_rs)) {
                 if (isset($row['Engine'])
-                    && /*overload*/ mb_strtoupper($row['Engine']) == $this->tbl_storage_engine
+                    &&  mb_strtoupper($row['Engine']) == $this->tbl_storage_engine
                 ) {
                     $tables[] = htmlspecialchars($row['Name']);
                 }

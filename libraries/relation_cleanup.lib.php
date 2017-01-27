@@ -5,9 +5,6 @@
  *
  * @package PhpMyAdmin
  */
-if (! defined('PHPMYADMIN')) {
-    exit;
-}
 
 /**
  * Cleanup column related relation stuff
@@ -26,10 +23,10 @@ function PMA_relationsCleanupColumn($db, $table, $column)
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['column_info'])
-            . ' WHERE db_name  = \'' . PMA\libraries\Util::sqlAddSlashes($db) . '\''
-            . ' AND table_name = \'' . PMA\libraries\Util::sqlAddSlashes($table)
+            . ' WHERE db_name  = \'' . $GLOBALS['dbi']->escapeString($db) . '\''
+            . ' AND table_name = \'' . $GLOBALS['dbi']->escapeString($table)
             . '\''
-            . ' AND column_name = \'' . PMA\libraries\Util::sqlAddSlashes($column)
+            . ' AND column_name = \'' . $GLOBALS['dbi']->escapeString($column)
             . '\'';
         PMA_queryAsControlUser($remove_query);
     }
@@ -38,10 +35,10 @@ function PMA_relationsCleanupColumn($db, $table, $column)
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['table_info'])
-            . ' WHERE db_name  = \'' . PMA\libraries\Util::sqlAddSlashes($db) . '\''
-            . ' AND table_name = \'' . PMA\libraries\Util::sqlAddSlashes($table)
+            . ' WHERE db_name  = \'' . $GLOBALS['dbi']->escapeString($db) . '\''
+            . ' AND table_name = \'' . $GLOBALS['dbi']->escapeString($table)
             . '\''
-            . ' AND display_field = \'' . PMA\libraries\Util::sqlAddSlashes($column)
+            . ' AND display_field = \'' . $GLOBALS['dbi']->escapeString($column)
             . '\'';
         PMA_queryAsControlUser($remove_query);
     }
@@ -50,22 +47,22 @@ function PMA_relationsCleanupColumn($db, $table, $column)
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['relation'])
-            . ' WHERE master_db  = \'' . PMA\libraries\Util::sqlAddSlashes($db)
+            . ' WHERE master_db  = \'' . $GLOBALS['dbi']->escapeString($db)
             . '\''
-            . ' AND master_table = \'' . PMA\libraries\Util::sqlAddSlashes($table)
+            . ' AND master_table = \'' . $GLOBALS['dbi']->escapeString($table)
             . '\''
-            . ' AND master_field = \'' . PMA\libraries\Util::sqlAddSlashes($column)
+            . ' AND master_field = \'' . $GLOBALS['dbi']->escapeString($column)
             . '\'';
         PMA_queryAsControlUser($remove_query);
 
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['relation'])
-            . ' WHERE foreign_db  = \'' . PMA\libraries\Util::sqlAddSlashes($db)
+            . ' WHERE foreign_db  = \'' . $GLOBALS['dbi']->escapeString($db)
             . '\''
-            . ' AND foreign_table = \'' . PMA\libraries\Util::sqlAddSlashes($table)
+            . ' AND foreign_table = \'' . $GLOBALS['dbi']->escapeString($table)
             . '\''
-            . ' AND foreign_field = \'' . PMA\libraries\Util::sqlAddSlashes($column)
+            . ' AND foreign_field = \'' . $GLOBALS['dbi']->escapeString($column)
             . '\'';
         PMA_queryAsControlUser($remove_query);
     }
@@ -87,8 +84,8 @@ function PMA_relationsCleanupTable($db, $table)
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['column_info'])
-            . ' WHERE db_name  = \'' . PMA\libraries\Util::sqlAddSlashes($db) . '\''
-            . ' AND table_name = \'' . PMA\libraries\Util::sqlAddSlashes($table)
+            . ' WHERE db_name  = \'' . $GLOBALS['dbi']->escapeString($db) . '\''
+            . ' AND table_name = \'' . $GLOBALS['dbi']->escapeString($table)
             . '\'';
         PMA_queryAsControlUser($remove_query);
     }
@@ -97,8 +94,8 @@ function PMA_relationsCleanupTable($db, $table)
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['table_info'])
-            . ' WHERE db_name  = \'' . PMA\libraries\Util::sqlAddSlashes($db) . '\''
-            . ' AND table_name = \'' . PMA\libraries\Util::sqlAddSlashes($table)
+            . ' WHERE db_name  = \'' . $GLOBALS['dbi']->escapeString($db) . '\''
+            . ' AND table_name = \'' . $GLOBALS['dbi']->escapeString($table)
             . '\'';
         PMA_queryAsControlUser($remove_query);
     }
@@ -107,8 +104,8 @@ function PMA_relationsCleanupTable($db, $table)
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['table_coords'])
-            . ' WHERE db_name  = \'' . PMA\libraries\Util::sqlAddSlashes($db) . '\''
-            . ' AND table_name = \'' . PMA\libraries\Util::sqlAddSlashes($table)
+            . ' WHERE db_name  = \'' . $GLOBALS['dbi']->escapeString($db) . '\''
+            . ' AND table_name = \'' . $GLOBALS['dbi']->escapeString($table)
             . '\'';
         PMA_queryAsControlUser($remove_query);
     }
@@ -117,18 +114,18 @@ function PMA_relationsCleanupTable($db, $table)
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['relation'])
-            . ' WHERE master_db  = \'' . PMA\libraries\Util::sqlAddSlashes($db)
+            . ' WHERE master_db  = \'' . $GLOBALS['dbi']->escapeString($db)
             . '\''
-            . ' AND master_table = \'' . PMA\libraries\Util::sqlAddSlashes($table)
+            . ' AND master_table = \'' . $GLOBALS['dbi']->escapeString($table)
             . '\'';
         PMA_queryAsControlUser($remove_query);
 
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['relation'])
-            . ' WHERE foreign_db  = \'' . PMA\libraries\Util::sqlAddSlashes($db)
+            . ' WHERE foreign_db  = \'' . $GLOBALS['dbi']->escapeString($db)
             . '\''
-            . ' AND foreign_table = \'' . PMA\libraries\Util::sqlAddSlashes($table)
+            . ' AND foreign_table = \'' . $GLOBALS['dbi']->escapeString($table)
             . '\'';
         PMA_queryAsControlUser($remove_query);
     }
@@ -137,8 +134,8 @@ function PMA_relationsCleanupTable($db, $table)
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['table_uiprefs'])
-            . ' WHERE db_name  = \'' . PMA\libraries\Util::sqlAddSlashes($db) . '\''
-            . ' AND table_name = \'' . PMA\libraries\Util::sqlAddSlashes($table)
+            . ' WHERE db_name  = \'' . $GLOBALS['dbi']->escapeString($db) . '\''
+            . ' AND table_name = \'' . $GLOBALS['dbi']->escapeString($table)
             . '\'';
         PMA_queryAsControlUser($remove_query);
     }
@@ -147,10 +144,10 @@ function PMA_relationsCleanupTable($db, $table)
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['navigationhiding'])
-            . ' WHERE db_name  = \'' . PMA\libraries\Util::sqlAddSlashes($db) . '\''
-            . ' AND (table_name = \'' . PMA\libraries\Util::sqlAddSlashes($table)
+            . ' WHERE db_name  = \'' . $GLOBALS['dbi']->escapeString($db) . '\''
+            . ' AND (table_name = \'' . $GLOBALS['dbi']->escapeString($table)
             . '\''
-            . ' OR (item_name = \'' . PMA\libraries\Util::sqlAddSlashes($table)
+            . ' OR (item_name = \'' . $GLOBALS['dbi']->escapeString($table)
             . '\''
             . ' AND item_type = \'table\'))';
         PMA_queryAsControlUser($remove_query);
@@ -172,7 +169,7 @@ function PMA_relationsCleanupDatabase($db)
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['column_info'])
-            . ' WHERE db_name  = \'' . PMA\libraries\Util::sqlAddSlashes($db) . '\'';
+            . ' WHERE db_name  = \'' . $GLOBALS['dbi']->escapeString($db) . '\'';
         PMA_queryAsControlUser($remove_query);
     }
 
@@ -180,7 +177,7 @@ function PMA_relationsCleanupDatabase($db)
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['bookmark'])
-            . ' WHERE dbase  = \'' . PMA\libraries\Util::sqlAddSlashes($db) . '\'';
+            . ' WHERE dbase  = \'' . $GLOBALS['dbi']->escapeString($db) . '\'';
         PMA_queryAsControlUser($remove_query);
     }
 
@@ -188,7 +185,7 @@ function PMA_relationsCleanupDatabase($db)
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['table_info'])
-            . ' WHERE db_name  = \'' . PMA\libraries\Util::sqlAddSlashes($db) . '\'';
+            . ' WHERE db_name  = \'' . $GLOBALS['dbi']->escapeString($db) . '\'';
         PMA_queryAsControlUser($remove_query);
     }
 
@@ -196,13 +193,13 @@ function PMA_relationsCleanupDatabase($db)
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['pdf_pages'])
-            . ' WHERE db_name  = \'' . PMA\libraries\Util::sqlAddSlashes($db) . '\'';
+            . ' WHERE db_name  = \'' . $GLOBALS['dbi']->escapeString($db) . '\'';
         PMA_queryAsControlUser($remove_query);
 
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['table_coords'])
-            . ' WHERE db_name  = \'' . PMA\libraries\Util::sqlAddSlashes($db) . '\'';
+            . ' WHERE db_name  = \'' . $GLOBALS['dbi']->escapeString($db) . '\'';
         PMA_queryAsControlUser($remove_query);
     }
 
@@ -211,13 +208,13 @@ function PMA_relationsCleanupDatabase($db)
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['relation'])
             . ' WHERE master_db  = \''
-            . PMA\libraries\Util::sqlAddSlashes($db) . '\'';
+            . $GLOBALS['dbi']->escapeString($db) . '\'';
         PMA_queryAsControlUser($remove_query);
 
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['relation'])
-            . ' WHERE foreign_db  = \'' . PMA\libraries\Util::sqlAddSlashes($db)
+            . ' WHERE foreign_db  = \'' . $GLOBALS['dbi']->escapeString($db)
             . '\'';
         PMA_queryAsControlUser($remove_query);
     }
@@ -226,7 +223,7 @@ function PMA_relationsCleanupDatabase($db)
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['table_uiprefs'])
-            . ' WHERE db_name  = \'' . PMA\libraries\Util::sqlAddSlashes($db) . '\'';
+            . ' WHERE db_name  = \'' . $GLOBALS['dbi']->escapeString($db) . '\'';
         PMA_queryAsControlUser($remove_query);
     }
 
@@ -234,7 +231,7 @@ function PMA_relationsCleanupDatabase($db)
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['navigationhiding'])
-            . ' WHERE db_name  = \'' . PMA\libraries\Util::sqlAddSlashes($db) . '\'';
+            . ' WHERE db_name  = \'' . $GLOBALS['dbi']->escapeString($db) . '\'';
         PMA_queryAsControlUser($remove_query);
     }
 
@@ -242,7 +239,7 @@ function PMA_relationsCleanupDatabase($db)
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['savedsearches'])
-            . ' WHERE db_name  = \'' . PMA\libraries\Util::sqlAddSlashes($db) . '\'';
+            . ' WHERE db_name  = \'' . $GLOBALS['dbi']->escapeString($db) . '\'';
         PMA_queryAsControlUser($remove_query);
     }
 
@@ -250,7 +247,7 @@ function PMA_relationsCleanupDatabase($db)
         $remove_query = 'DELETE FROM '
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . '.' . PMA\libraries\Util::backquote($cfgRelation['central_columns'])
-            . ' WHERE db_name  = \'' . PMA\libraries\Util::sqlAddSlashes($db) . '\'';
+            . ' WHERE db_name  = \'' . $GLOBALS['dbi']->escapeString($db) . '\'';
         PMA_queryAsControlUser($remove_query);
     }
 }
@@ -270,7 +267,7 @@ function PMA_relationsCleanupUser($username)
         $remove_query = "DELETE FROM "
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . "." . PMA\libraries\Util::backquote($cfgRelation['bookmark'])
-            . " WHERE `user`  = '" . PMA\libraries\Util::sqlAddSlashes($username)
+            . " WHERE `user`  = '" . $GLOBALS['dbi']->escapeString($username)
             . "'";
         PMA_queryAsControlUser($remove_query);
     }
@@ -279,7 +276,7 @@ function PMA_relationsCleanupUser($username)
         $remove_query = "DELETE FROM "
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . "." . PMA\libraries\Util::backquote($cfgRelation['history'])
-            . " WHERE `username`  = '" . PMA\libraries\Util::sqlAddSlashes($username)
+            . " WHERE `username`  = '" . $GLOBALS['dbi']->escapeString($username)
             . "'";
         PMA_queryAsControlUser($remove_query);
     }
@@ -288,7 +285,7 @@ function PMA_relationsCleanupUser($username)
         $remove_query = "DELETE FROM "
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . "." . PMA\libraries\Util::backquote($cfgRelation['recent'])
-            . " WHERE `username`  = '" . PMA\libraries\Util::sqlAddSlashes($username)
+            . " WHERE `username`  = '" . $GLOBALS['dbi']->escapeString($username)
             . "'";
         PMA_queryAsControlUser($remove_query);
     }
@@ -297,7 +294,7 @@ function PMA_relationsCleanupUser($username)
         $remove_query = "DELETE FROM "
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . "." . PMA\libraries\Util::backquote($cfgRelation['favorite'])
-            . " WHERE `username`  = '" . PMA\libraries\Util::sqlAddSlashes($username)
+            . " WHERE `username`  = '" . $GLOBALS['dbi']->escapeString($username)
             . "'";
         PMA_queryAsControlUser($remove_query);
     }
@@ -306,7 +303,7 @@ function PMA_relationsCleanupUser($username)
         $remove_query = "DELETE FROM "
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . "." . PMA\libraries\Util::backquote($cfgRelation['table_uiprefs'])
-            . " WHERE `username`  = '" . PMA\libraries\Util::sqlAddSlashes($username)
+            . " WHERE `username`  = '" . $GLOBALS['dbi']->escapeString($username)
             . "'";
         PMA_queryAsControlUser($remove_query);
     }
@@ -315,7 +312,7 @@ function PMA_relationsCleanupUser($username)
         $remove_query = "DELETE FROM "
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . "." . PMA\libraries\Util::backquote($cfgRelation['userconfig'])
-            . " WHERE `username`  = '" . PMA\libraries\Util::sqlAddSlashes($username)
+            . " WHERE `username`  = '" . $GLOBALS['dbi']->escapeString($username)
             . "'";
         PMA_queryAsControlUser($remove_query);
     }
@@ -324,7 +321,7 @@ function PMA_relationsCleanupUser($username)
         $remove_query = "DELETE FROM "
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . "." . PMA\libraries\Util::backquote($cfgRelation['users'])
-            . " WHERE `username`  = '" . PMA\libraries\Util::sqlAddSlashes($username)
+            . " WHERE `username`  = '" . $GLOBALS['dbi']->escapeString($username)
             . "'";
         PMA_queryAsControlUser($remove_query);
     }
@@ -333,7 +330,7 @@ function PMA_relationsCleanupUser($username)
         $remove_query = "DELETE FROM "
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . "." . PMA\libraries\Util::backquote($cfgRelation['navigationhiding'])
-            . " WHERE `username`  = '" . PMA\libraries\Util::sqlAddSlashes($username)
+            . " WHERE `username`  = '" . $GLOBALS['dbi']->escapeString($username)
             . "'";
         PMA_queryAsControlUser($remove_query);
     }
@@ -342,7 +339,7 @@ function PMA_relationsCleanupUser($username)
         $remove_query = "DELETE FROM "
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . "." . PMA\libraries\Util::backquote($cfgRelation['savedsearches'])
-            . " WHERE `username`  = '" . PMA\libraries\Util::sqlAddSlashes($username)
+            . " WHERE `username`  = '" . $GLOBALS['dbi']->escapeString($username)
             . "'";
         PMA_queryAsControlUser($remove_query);
     }
@@ -351,7 +348,7 @@ function PMA_relationsCleanupUser($username)
         $remove_query = "DELETE FROM "
             . PMA\libraries\Util::backquote($cfgRelation['db'])
             . "." . PMA\libraries\Util::backquote($cfgRelation['designer_settings'])
-            . " WHERE `username`  = '" . PMA\libraries\Util::sqlAddSlashes($username)
+            . " WHERE `username`  = '" . $GLOBALS['dbi']->escapeString($username)
             . "'";
         PMA_queryAsControlUser($remove_query);
     }

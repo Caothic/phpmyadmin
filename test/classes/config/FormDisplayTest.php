@@ -11,8 +11,8 @@ use PMA\libraries\config\ConfigFile;
 use PMA\libraries\config\FormDisplay;
 use PMA\libraries\Theme;
 
+require_once 'test/PMATestCase.php';
 require_once 'libraries/config/config_functions.lib.php';
-require_once 'libraries/php-gettext/gettext.inc';
 require_once 'libraries/user_preferences.lib.php';
 
 /**
@@ -20,7 +20,7 @@ require_once 'libraries/user_preferences.lib.php';
  *
  * @package PhpMyAdmin-test
  */
-class FormDisplayTest extends PHPUnit_Framework_TestCase
+class FormDisplayTest extends PMATestCase
 {
     /**
      * @var FormDisplay
@@ -34,9 +34,7 @@ class FormDisplayTest extends PHPUnit_Framework_TestCase
      */
     function setup()
     {
-        $_SESSION['PMA_Theme'] = new Theme();
         $GLOBALS['pmaThemePath'] = $_SESSION['PMA_Theme']->getPath();
-        $GLOBALS['pmaThemeImage'] = 'theme/';
         $GLOBALS['PMA_Config'] = new Config();
         $GLOBALS['PMA_Config']->enableBc();
         $GLOBALS['server'] = 0;
@@ -335,7 +333,7 @@ class FormDisplayTest extends PHPUnit_Framework_TestCase
     public function testGetDocLink()
     {
         $this->assertEquals(
-            "./url.php?url=http%3A%2F%2Fdocs.phpmyadmin.net%2Fen%2Flatest%2F" .
+            "./url.php?url=https%3A%2F%2Fdocs.phpmyadmin.net%2Fen%2Flatest%2F" .
             "config.html%23cfg_Servers_3_test_2_",
             $this->object->getDocLink("Servers/3/test/2/")
         );

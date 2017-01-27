@@ -10,10 +10,6 @@ namespace PMA\libraries\properties\options;
 
 use PMA\libraries\properties\PropertyItem;
 
-if (!defined('PHPMYADMIN')) {
-    exit;
-}
-
 /**
  * Superclass for
  *  - PMA\libraries\properties\options\OptionsPropertyOneItem and
@@ -41,6 +37,23 @@ abstract class OptionsPropertyItem extends PropertyItem
      * @var string
      */
     private $_force;
+
+    /**
+     * constructor
+     *
+     * @param string $name Item name
+     * @param string $text Item text
+     */
+    public function __construct($name = null, $text = null)
+    {
+        if ($name) {
+            $this->_name = $name;
+        }
+        if ($text) {
+            $this->_text = $text;
+        }
+    }
+
     /* ~~~~~~~~~~~~~~~~~~~~ Getters and Setters ~~~~~~~~~~~~~~~~~~~~ */
 
     /**

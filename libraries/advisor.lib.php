@@ -5,9 +5,6 @@
  *
  * @package PhpMyAdmin
  */
-if (! defined('PHPMYADMIN')) {
-    exit;
-}
 
 /**
  * Formats interval like 10 per hour
@@ -35,7 +32,7 @@ function ADVISOR_bytime($num, $precision)
     $num = round($num, $precision);
 
     if ($num == 0) {
-        $num = '<' . PMA\libraries\Util::pow(10, -$precision);
+        $num = '<' . pow(10, -$precision);
     }
 
     return "$num $per";

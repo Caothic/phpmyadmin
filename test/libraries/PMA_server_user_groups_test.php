@@ -7,13 +7,12 @@
  */
 
 use PMA\libraries\Theme;
+use PMA\libraries\URL;
 
-require_once 'libraries/php-gettext/gettext.inc';
 
 
 require_once 'libraries/relation.lib.php';
 require_once 'libraries/database_interface.inc.php';
-require_once 'libraries/url_generating.lib.php';
 /*
  * Include to test.
  */
@@ -44,9 +43,6 @@ class PMA_ServerUserGroupsTest extends PHPUnit_Framework_TestCase
             'usergroups' => 'usergroups'
         );
 
-        $GLOBALS['pmaThemeImage'] = 'image';
-        $_SESSION['PMA_Theme'] = Theme::load('./themes/pmahomme');
-        $_SESSION['PMA_Theme'] = new Theme();
     }
 
     /**
@@ -81,7 +77,7 @@ class PMA_ServerUserGroupsTest extends PHPUnit_Framework_TestCase
             $html
         );
         $url_tag = '<a href="server_user_groups.php'
-            . PMA_URL_getCommon(array('addUserGroup' => 1));
+            . URL::getCommon(array('addUserGroup' => 1));
         $this->assertContains(
             $url_tag,
             $html
@@ -135,7 +131,7 @@ class PMA_ServerUserGroupsTest extends PHPUnit_Framework_TestCase
             $html
         );
         $url_tag = '<a class="" href="server_user_groups.php'
-            . PMA_URL_getCommon(
+            . URL::getCommon(
                 array(
                     'viewUsers'=>1, 'userGroup'=>htmlspecialchars('usergroup')
                 )
@@ -145,7 +141,7 @@ class PMA_ServerUserGroupsTest extends PHPUnit_Framework_TestCase
             $html
         );
         $url_tag = '<a class="" href="server_user_groups.php'
-            . PMA_URL_getCommon(
+            . URL::getCommon(
                 array(
                     'editUserGroup'=>1,
                     'userGroup'=>htmlspecialchars('usergroup')
@@ -156,7 +152,7 @@ class PMA_ServerUserGroupsTest extends PHPUnit_Framework_TestCase
             $html
         );
         $url_tag = '<a class="deleteUserGroup ajax" href="server_user_groups.php'
-            . PMA_URL_getCommon(
+            . URL::getCommon(
                 array(
                     'deleteUserGroup'=> 1,
                     'userGroup'=>htmlspecialchars('usergroup')
@@ -183,12 +179,16 @@ class PMA_ServerUserGroupsTest extends PHPUnit_Framework_TestCase
         $dbi = $this->getMockBuilder('PMA\libraries\DatabaseInterface')
             ->disableOriginalConstructor()
             ->getMock();
-        $dbi->expects($this->at(0))
-            ->method('query')
-            ->with($userDelQuery);
         $dbi->expects($this->at(1))
             ->method('query')
+            ->with($userDelQuery);
+        $dbi->expects($this->at(3))
+            ->method('query')
             ->with($userGrpDelQuery);
+        $dbi->expects($this->any())
+            ->method('escapeString')
+            ->will($this->returnArgument(0));
+
         $GLOBALS['dbi'] = $dbi;
 
         PMA_deleteUserGroup('ug');
@@ -221,24 +221,22 @@ class PMA_ServerUserGroupsTest extends PHPUnit_Framework_TestCase
             ->method('tryQuery')
             ->with($expectedQuery)
             ->will($this->returnValue(true));
-        $dbi->expects($this->at(1))
+        $dbi->expects($this->exactly(2))
             ->method('fetchAssoc')
-            ->withAnyParameters()
-            ->will(
-                $this->returnValue(
-                    array(
-                        'usergroup' => 'ug',
-                        'tab' => 'server_sql',
-                        'allowed' => 'Y'
-                    )
-                )
+            ->willReturnOnConsecutiveCalls(
+                array(
+                    'usergroup' => 'ug',
+                    'tab' => 'server_sql',
+                    'allowed' => 'Y'
+                ),
+                false
             );
-        $dbi->expects($this->at(2))
-            ->method('fetchAssoc')
-            ->withAnyParameters()
-            ->will($this->returnValue(false));
         $dbi->expects($this->once())
             ->method('freeResult');
+        $dbi->expects($this->any())
+            ->method('escapeString')
+            ->will($this->returnArgument(0));
+
         $GLOBALS['dbi'] = $dbi;
 
         // editing a user group

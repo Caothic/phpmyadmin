@@ -8,6 +8,7 @@
 namespace PMA\libraries\config;
 
 use PMA\libraries\DatabaseInterface;
+use PMA\libraries\Util;
 
 /**
  * Validation class for various validation functions
@@ -57,9 +58,9 @@ class Validator
                     continue;
                 }
                 for ($i = 1, $nb = count($uv); $i < $nb; $i++) {
-                    if (/*overload*/mb_substr($uv[$i], 0, 6) == 'value:') {
+                    if (mb_substr($uv[$i], 0, 6) == 'value:') {
                         $uv[$i] = PMA_arrayRead(
-                            /*overload*/mb_substr($uv[$i], 6),
+                            mb_substr($uv[$i], 6),
                             $GLOBALS['PMA_Config']->base_settings
                         );
                     }
@@ -111,7 +112,7 @@ class Validator
         $key_map = array();
         foreach ($values as $k => $v) {
             $k2 = $isPostSource ? str_replace('-', '/', $k) : $k;
-            $k2 = /*overload*/mb_strpos($k2, '/')
+            $k2 = mb_strpos($k2, '/')
                 ? $cf->getCanonicalPath($k2)
                 : $k2;
             $key_map[$k2] = $k;
@@ -159,50 +160,6 @@ class Validator
     }
 
     /**
-     * Empty error handler, used to temporarily restore PHP internal error handler
-     *
-     * @return bool
-     */
-    public static function nullErrorHandler()
-    {
-        return false;
-    }
-
-    /**
-     * Ensures that $php_errormsg variable will be registered in case of an error
-     * and enables output buffering (when $start = true).
-     * Called with $start = false disables output buffering end restores
-     * html_errors and track_errors.
-     *
-     * @param boolean $start Whether to start buffering
-     *
-     * @return void
-     */
-    public static function testPHPErrorMsg($start = true)
-    {
-        static $old_html_errors, $old_track_errors, $old_error_reporting;
-        static $old_display_errors;
-        if ($start) {
-            $old_html_errors = ini_get('html_errors');
-            $old_track_errors = ini_get('track_errors');
-            $old_display_errors = ini_get('display_errors');
-            $old_error_reporting = error_reporting(E_ALL);
-            ini_set('html_errors', 'false');
-            ini_set('track_errors', 'true');
-            ini_set('display_errors', 'true');
-            set_error_handler(array('PMA\libraries\config\Validator', "nullErrorHandler"));
-            ob_start();
-        } else {
-            ob_end_clean();
-            restore_error_handler();
-            error_reporting($old_error_reporting);
-            ini_set('html_errors', $old_html_errors);
-            ini_set('track_errors', $old_track_errors);
-            ini_set('display_errors', $old_display_errors);
-        }
-    }
-
-    /**
      * Test database connection
      *
      * @param string $connect_type 'tcp' or 'socket'
@@ -226,6 +183,7 @@ class Validator
     ) {
         //    static::testPHPErrorMsg();
         $error = null;
+        $host = PMA_sanitizeMySQLHost($host);
 
         if (DatabaseInterface::checkDbExtension('mysqli')) {
             $socket = empty($socket) || $connect_type == 'tcp' ? null : $socket;
@@ -280,6 +238,11 @@ class Validator
             'Servers/1/SignonURL' => ''
         );
         $error = false;
+        if (empty($values['Servers/1/auth_type'])) {
+            $values['Servers/1/auth_type'] = '';
+            $result['Servers/1/auth_type'] = __('Invalid authentication type!');
+            $error = true;
+        }
         if ($values['Servers/1/auth_type'] == 'config'
             && empty($values['Servers/1/user'])
         ) {
@@ -308,17 +271,20 @@ class Validator
         }
 
         if (! $error && $values['Servers/1/auth_type'] == 'config') {
-            $password = $values['Servers/1/nopassword'] ? null
-                : $values['Servers/1/password'];
+            $password = '';
+            if (! empty($values['Servers/1/password'])) {
+                $password = $values['Servers/1/password'];
+            }
             $test = static::testDBConnection(
-                $values['Servers/1/connect_type'],
-                $values['Servers/1/host'],
-                $values['Servers/1/port'],
-                $values['Servers/1/socket'],
-                $values['Servers/1/user'],
+                empty($values['Servers/1/connect_type']) ? '' : $values['Servers/1/connect_type'],
+                empty($values['Servers/1/host']) ? '' : $values['Servers/1/host'],
+                empty($values['Servers/1/port']) ? '' : $values['Servers/1/port'],
+                empty($values['Servers/1/socket']) ? '' : $values['Servers/1/socket'],
+                empty($values['Servers/1/user']) ? '' : $values['Servers/1/user'],
                 $password,
                 'Server'
             );
+
             if ($test !== true) {
                 $result = array_merge($result, $test);
             }
@@ -345,19 +311,19 @@ class Validator
         );
         $error = false;
 
-        if ($values['Servers/1/pmadb'] == '') {
+        if (empty($values['Servers/1/pmadb'])) {
             return $result;
         }
 
         $result = array();
-        if ($values['Servers/1/controluser'] == '') {
+        if (empty($values['Servers/1/controluser'])) {
             $result['Servers/1/controluser'] = __(
                 'Empty phpMyAdmin control user while using phpMyAdmin configuration '
                 . 'storage!'
             );
             $error = true;
         }
-        if ($values['Servers/1/controlpass'] == '') {
+        if (empty($values['Servers/1/controlpass'])) {
             $result['Servers/1/controlpass'] = __(
                 'Empty phpMyAdmin control user password while using phpMyAdmin '
                 . 'configuration storage!'
@@ -366,10 +332,13 @@ class Validator
         }
         if (! $error) {
             $test = static::testDBConnection(
-                $values['Servers/1/connect_type'],
-                $values['Servers/1/host'], $values['Servers/1/port'],
-                $values['Servers/1/socket'], $values['Servers/1/controluser'],
-                $values['Servers/1/controlpass'], 'Server_pmadb'
+                empty($values['Servers/1/connect_type']) ? '' : $values['Servers/1/connect_type'],
+                empty($values['Servers/1/host']) ? '' : $values['Servers/1/host'],
+                empty($values['Servers/1/port']) ? '' : $values['Servers/1/port'],
+                empty($values['Servers/1/socket']) ? '' : $values['Servers/1/socket'],
+                empty($values['Servers/1/controluser']) ? '' : $values['Servers/1/controluser'],
+                empty($values['Servers/1/controlpass']) ? '' : $values['Servers/1/controlpass'],
+                'Server_pmadb'
             );
             if ($test !== true) {
                 $result = array_merge($result, $test);
@@ -391,21 +360,30 @@ class Validator
     {
         $result = array($path => '');
 
-        if ($values[$path] == '') {
+        if (empty($values[$path])) {
             return $result;
         }
 
-        static::testPHPErrorMsg();
+        if (function_exists('error_clear_last')) {
+            /* PHP 7 only code */
+            error_clear_last();
+            $last_error = null;
+        } else {
+            // As fallback we trigger another error to ensure
+            // that preg error will be different
+            @strpos();
+            $last_error = error_get_last();
+        }
 
         $matches = array();
         // in libraries/ListDatabase.php _checkHideDatabase(),
         // a '/' is used as the delimiter for hide_db
-        preg_match('/' . $values[$path] . '/', '', $matches);
+        @preg_match('/' . Util::requestString($values[$path]) . '/', '', $matches);
 
-        static::testPHPErrorMsg(false);
+        $current_error = error_get_last();
 
-        if (isset($php_errormsg)) {
-            $error = preg_replace('/^preg_match\(\): /', '', $php_errormsg);
+        if ($current_error !== $last_error) {
+            $error = preg_replace('/^preg_match\(\): /', '', $current_error['message']);
             return array($path => $error);
         }
 
@@ -428,10 +406,11 @@ class Validator
             return $result;
         }
 
-        if (is_array($values[$path])) {
+        if (is_array($values[$path]) || is_object($values[$path])) {
             // value already processed by FormDisplay::save
             $lines = array();
             foreach ($values[$path] as $ip => $v) {
+                $v = Util::requestString($v);
                 $lines[] = preg_match('/^-\d+$/', $ip)
                     ? $v
                     : $ip . ': ' . $v;
@@ -483,14 +462,16 @@ class Validator
         $max_value,
         $error_string
     ) {
-        if ($values[$path] === '') {
+        if (empty($values[$path])) {
             return '';
         }
 
-        if (intval($values[$path]) != $values[$path]
-            || (! $allow_neg && $values[$path] < 0)
-            || (! $allow_zero && $values[$path] == 0)
-            || $values[$path] > $max_value
+        $value = Util::requestString($values[$path]);
+
+        if (intval($value) != $value
+            || (! $allow_neg && $value < 0)
+            || (! $allow_zero && $value == 0)
+            || $value > $max_value
         ) {
             return $error_string;
         }
@@ -576,7 +557,10 @@ class Validator
      */
     public static function validateByRegex($path, $values, $regex)
     {
-        $result = preg_match($regex, $values[$path]);
+        if (!isset($values[$path])) {
+            return '';
+        }
+        $result = preg_match($regex, Util::requestString($values[$path]));
         return array($path => ($result ? '' : __('Incorrect value!')));
     }
 

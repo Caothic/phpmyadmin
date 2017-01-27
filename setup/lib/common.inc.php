@@ -16,13 +16,12 @@ define('PMA_SETUP', true);
 chdir('..');
 
 if (!file_exists('./libraries/common.inc.php')) {
-    PMA_fatalError('Bad invocation!');
+    die('Bad invocation!');
 }
 
 require_once './libraries/common.inc.php';
 require_once './libraries/config/config_functions.lib.php';
 require_once './libraries/config/messages.inc.php';
-require_once './libraries/url_generating.lib.php';
 require_once './libraries/user_preferences.lib.php';
 
 // use default error handler

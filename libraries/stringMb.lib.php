@@ -14,8 +14,6 @@ if (! defined('PHPMYADMIN')) {
 }
 
 if (!@function_exists('mb_ord')) {
-    mb_internal_encoding('utf-8');
-
     /**
      * Perform a regular expression match
      *
@@ -70,7 +68,7 @@ if (!@function_exists('mb_ord')) {
     {
         return mb_convert_encoding(
             pack("N", $ascii),
-            mb_internal_encoding(),
+            'utf-8',
             'UCS-4BE'
         );
     }

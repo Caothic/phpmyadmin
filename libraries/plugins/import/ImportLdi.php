@@ -68,32 +68,39 @@ class ImportLdi extends AbstractImportCsv
         $this->properties->setText('CSV using LOAD DATA');
         $this->properties->setExtension('ldi');
 
-        $leaf = new TextPropertyItem();
-        $leaf->setName("columns");
-        $leaf->setText(__('Column names: '));
+        $leaf = new TextPropertyItem(
+            "columns",
+            __('Column names: ')
+        );
         $generalOptions->addProperty($leaf);
 
-        $leaf = new BoolPropertyItem();
-        $leaf->setName("ignore");
-        $leaf->setText(__('Do not abort on INSERT error'));
+        $leaf = new BoolPropertyItem(
+            "ignore",
+            __('Do not abort on INSERT error')
+        );
         $generalOptions->addProperty($leaf);
 
-        $leaf = new BoolPropertyItem();
-        $leaf->setName("local_option");
-        $leaf->setText(__('Use LOCAL keyword'));
+        $leaf = new BoolPropertyItem(
+            "local_option",
+            __('Use LOCAL keyword')
+        );
         $generalOptions->addProperty($leaf);
     }
 
     /**
      * Handles the whole import logic
      *
+     * @param array &$sql_data 2-element array with sql data
+     *
      * @return void
      */
-    public function doImport()
+    public function doImport(&$sql_data = array())
     {
-        global $finished, $import_file, $compression, $charset_conversion, $table;
+        global $finished, $import_file, $charset_conversion, $table;
         global $ldi_local_option, $ldi_replace, $ldi_ignore, $ldi_terminated,
                $ldi_enclosed, $ldi_escaped, $ldi_new_line, $skip_queries, $ldi_columns;
+
+        $compression = $GLOBALS['import_handle']->getCompression();
 
         if ($import_file == 'none'
             || $compression != 'none'
@@ -112,7 +119,7 @@ class ImportLdi extends AbstractImportCsv
         if (isset($ldi_local_option)) {
             $sql .= ' LOCAL';
         }
-        $sql .= ' INFILE \'' . PMA\libraries\Util::sqlAddSlashes($import_file)
+        $sql .= ' INFILE \'' . $GLOBALS['dbi']->escapeString($import_file)
             . '\'';
         if (isset($ldi_replace)) {
             $sql .= ' REPLACE';
@@ -126,16 +133,16 @@ class ImportLdi extends AbstractImportCsv
         }
         if (strlen($ldi_enclosed) > 0) {
             $sql .= ' ENCLOSED BY \''
-                . PMA\libraries\Util::sqlAddSlashes($ldi_enclosed) . '\'';
+                . $GLOBALS['dbi']->escapeString($ldi_enclosed) . '\'';
         }
         if (strlen($ldi_escaped) > 0) {
             $sql .= ' ESCAPED BY \''
-                . PMA\libraries\Util::sqlAddSlashes($ldi_escaped) . '\'';
+                . $GLOBALS['dbi']->escapeString($ldi_escaped) . '\'';
         }
         if (strlen($ldi_new_line) > 0) {
             if ($ldi_new_line == 'auto') {
                 $ldi_new_line
-                    = (PMA\libraries\Util::whichCrlf() == "\n")
+                    = (PHP_EOL == "\n")
                     ? '\n'
                     : '\r\n';
             }
@@ -161,8 +168,8 @@ class ImportLdi extends AbstractImportCsv
             $sql .= ')';
         }
 
-        PMA_importRunQuery($sql, $sql);
-        PMA_importRunQuery();
+        PMA_importRunQuery($sql, $sql, $sql_data);
+        PMA_importRunQuery('', '', $sql_data);
         $finished = true;
     }
 }

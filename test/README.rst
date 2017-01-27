@@ -4,7 +4,7 @@ PhpMyAdmin test suite
 This directory is protected from web visitors by a .htaccess file.
 
 For more information on allowing http access to this directory see:
-http://httpd.apache.org/docs/current/mod/mod_authz_host.html#allow
+https://httpd.apache.org/docs/current/mod/mod_authz_host.html#allow
 
 Please visit the wiki for more information on unit testing:
 https://wiki.phpmyadmin.net/pma/UnitTesting
@@ -41,7 +41,7 @@ TESTSUITE_SELENIUM_BROWSER
 
 With BrowserStack, set following:
 
-TESTSUITE_BROWSERSTACK_UNAME
+TESTSUITE_BROWSERSTACK_USER
     BrowserStack username.
 TESTSUITE_BROWSERSTACK_KEY
     BrowserStack access key.
@@ -53,7 +53,7 @@ For example you can use following setup in ``phpunit.xml``::
         <env name="TESTSUITE_USER" value="root"/>
         <env name="TESTSUITE_PASSWORD" value="root"/>
         <env name="TESTSUITE_DATABASE" value="test"/>
-        <env name="TESTSUITE_PHPMYADMIN_HOST" value="http://localhost/phpmyadmin/" />
+        <env name="TESTSUITE_URL" value="http://localhost/phpmyadmin/" />
         <env name="TESTSUITE_SELENIUM_HOST" value="127.0.0.1" />
         <env name="TESTSUITE_SELENIUM_PORT" value="4444" />
     </php>

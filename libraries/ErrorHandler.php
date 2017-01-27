@@ -7,6 +7,8 @@
  */
 namespace PMA\libraries;
 
+use PMA\libraries\Error;
+
 /**
  * handling errors
  *
@@ -20,6 +22,11 @@ class ErrorHandler
      * @var Error[]
      */
     protected $errors = array();
+
+    /**
+     * Hide location of errors
+     */
+    protected $hide_location = false;
 
     /**
      * Constructor - set PHP error handler
@@ -76,25 +83,55 @@ class ErrorHandler
     }
 
     /**
+     * Toggles location hiding
+     *
+     * @param boolean $hide Whether to hide
+     *
+     * @return void
+     */
+    public function setHideLocation($hide)
+    {
+        $this->hide_location = $hide;
+    }
+
+    /**
      * returns array with all errors
+     *
+     * @param bool $check Whether to check for session errors
      *
      * @return Error[]
      */
-    protected function getErrors()
+    public function getErrors($check=true)
     {
-        $this->checkSavedErrors();
+        if ($check) {
+            $this->checkSavedErrors();
+        }
         return $this->errors;
     }
 
     /**
     * returns the errors occurred in the current run only.
-    * Does not include the errors save din the SESSION
+    * Does not include the errors saved in the SESSION
     *
     * @return Error[]
     */
     public function getCurrentErrors()
     {
         return $this->errors;
+    }
+
+    /**
+     * Pops recent errors from the storage
+     *
+     * @param int $count Old error count
+     *
+     * @return Error[]
+     */
+    public function sliceErrors($count)
+    {
+        $errors = $this->getErrors(false);
+        $this->errors = array_splice($errors, 0, $count);
+        return array_splice($errors, $count);
     }
 
     /**
@@ -150,21 +187,25 @@ class ErrorHandler
             $errfile,
             $errline
         );
+        $error->setHideLocation($this->hide_location);
 
         // do not repeat errors
         $this->errors[$error->getHash()] = $error;
 
         switch ($error->getNumber()) {
-        case E_USER_NOTICE:
-        case E_USER_WARNING:
         case E_STRICT:
         case E_DEPRECATED:
         case E_NOTICE:
         case E_WARNING:
         case E_CORE_WARNING:
         case E_COMPILE_WARNING:
-        case E_USER_ERROR:
         case E_RECOVERABLE_ERROR:
+            /* Avoid rendering BB code in PHP errors */
+            $error->setBBCode(false);
+            break;
+        case E_USER_NOTICE:
+        case E_USER_WARNING:
+        case E_USER_ERROR:
             // just collect the error
             // display is called from outside
             break;
@@ -177,21 +218,6 @@ class ErrorHandler
             $this->dispFatalError($error);
             exit;
         }
-    }
-
-
-    /**
-     * log error to configured log facility
-     *
-     * @param Error $error the error
-     *
-     * @return bool
-     *
-     * @todo finish!
-     */
-    protected function logError($error)
-    {
-        return error_log($error->getMessage());
     }
 
     /**
@@ -288,6 +314,10 @@ class ErrorHandler
      */
     public function getDispErrors()
     {
+        // Not sure why but seen in https://reports.phpmyadmin.net/
+        if (empty($GLOBALS['cfg']['SendErrorReports'])) {
+            $GLOBALS['cfg']['SendErrorReports'] = 'ask';
+        }
         $retval = '';
         // display errors if SendErrorReports is set to 'ask'.
         if ($GLOBALS['cfg']['SendErrorReports'] != 'never') {
@@ -380,11 +410,13 @@ class ErrorHandler
     /**
      * return count of errors
      *
+     * @param bool $check Whether to check for session errors
+     *
      * @return integer number of errors occurred
      */
-    public function countErrors()
+    public function countErrors($check=true)
     {
-        return count($this->getErrors());
+        return count($this->getErrors($check));
     }
 
     /**

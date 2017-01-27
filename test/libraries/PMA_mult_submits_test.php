@@ -10,17 +10,13 @@
  * Include to test.
  */
 use PMA\libraries\Theme;
+use PMA\libraries\URL;
 
-
-require_once 'libraries/php-gettext/gettext.inc';
-require_once 'libraries/url_generating.lib.php';
 
 require_once 'libraries/mult_submits.lib.php';
 
 require_once 'libraries/database_interface.inc.php';
 
-require_once 'libraries/sanitizing.lib.php';
-require_once 'libraries/js_escape.lib.php';
 require_once 'libraries/relation_cleanup.lib.php';
 require_once 'libraries/relation.lib.php';
 require_once 'libraries/sql.lib.php';
@@ -54,7 +50,6 @@ class PMA_MultSubmits_Test extends PHPUnit_Framework_TestCase
         $GLOBALS['cfg']['Server']['DisableIS'] = false;
         $GLOBALS['server'] = 0;
         $GLOBALS['cfg']['ActionLinksMode'] = "both";
-        $GLOBALS['pmaThemeImage'] = 'image';
 
         //_SESSION
         $_SESSION['relation'][$GLOBALS['server']] = array(
@@ -71,8 +66,6 @@ class PMA_MultSubmits_Test extends PHPUnit_Framework_TestCase
         );
 
         //$_SESSION
-        $_SESSION['PMA_Theme'] = Theme::load('./themes/pmahomme');
-        $_SESSION['PMA_Theme'] = new Theme();
 
         //Mock DBI
         $dbi = $this->getMockBuilder('PMA\libraries\DatabaseInterface')
@@ -93,36 +86,25 @@ class PMA_MultSubmits_Test extends PHPUnit_Framework_TestCase
      */
     public function testPMAGetHtmlForReplacePrefixTable()
     {
-        $what = 'replace_prefix_tbl';
         $action = 'delete_row';
         $_url_params = array('url_query'=>'PMA_original_url_query');
 
         //Call the test function
-        $html = PMA_getHtmlForReplacePrefixTable($what, $action, $_url_params);
+        $html = PMA_getHtmlForReplacePrefixTable($action, $_url_params);
 
-        //validate 1: form action
+        //form action
         $this->assertContains(
-            '<form action="' . $action . '" method="post">',
+            '<form id="ajax_form" action="delete_row" method="post">',
             $html
         );
-        //validate 2: $PMA_URL_getHiddenInputs
+        //$URL::getHiddenInputs
         $this->assertContains(
-            PMA_URL_getHiddenInputs($_url_params),
+            URL::getHiddenInputs($_url_params),
             $html
         );
-        //validate 3: title
-        $this->assertContains(
-            __('Replace table prefix:'),
-            $html
-        );
-        //validate 4: from_prefix
+        //from_prefix
         $this->assertContains(
             '<input type="text" name="from_prefix" id="initialPrefix" />',
-            $html
-        );
-        //validate 5: Submit button
-        $this->assertContains(
-            __('Submit'),
             $html
         );
     }
@@ -140,29 +122,19 @@ class PMA_MultSubmits_Test extends PHPUnit_Framework_TestCase
         //Call the test function
         $html = PMA_getHtmlForAddPrefixTable($action, $_url_params);
 
-        //validate 1: form action
+        //form action
         $this->assertContains(
-            '<form action="' . $action . '" method="post">',
+            '<form id="ajax_form" action="' . $action . '" method="post">',
             $html
         );
-        //validate 2: $_url_params
+        //$_url_params
         $this->assertContains(
-            PMA_URL_getHiddenInputs($_url_params),
+            URL::getHiddenInputs($_url_params),
             $html
         );
-        //validate 3: title
-        $this->assertContains(
-            '<legend>' . __('Add table prefix:') . '</legend>',
-            $html
-        );
-        //validate 4: from_prefix
+        //from_prefix
         $this->assertContains(
             __('Add prefix'),
-            $html
-        );
-        //validate 5: Submit
-        $this->assertContains(
-            __('Submit'),
             $html
         );
     }
@@ -191,7 +163,7 @@ class PMA_MultSubmits_Test extends PHPUnit_Framework_TestCase
         );
         //validate 2: $_url_params
         $this->assertContains(
-            PMA_URL_getHiddenInputs($_url_params),
+            URL::getHiddenInputs($_url_params),
             $html
         );
         //validate 3: conform

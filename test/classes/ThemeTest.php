@@ -7,21 +7,24 @@
  */
 use PMA\libraries\Theme;
 
-require_once 'libraries/core.lib.php';
-require_once 'libraries/php-gettext/gettext.inc';
-require_once 'libraries/url_generating.lib.php';
+require_once 'test/PMATestCase.php';
 
 /**
  * Test class for Theme.
  *
  * @package PhpMyAdmin-test
  */
-class ThemeTest extends PHPUnit_Framework_TestCase
+class ThemeTest extends PMATestCase
 {
     /**
      * @var Theme
      */
     protected $object;
+
+    /**
+     * @var backup for session theme
+     */
+    protected $backup;
 
     /**
      * Sets up the fixture, for example, opens a network connection.
@@ -32,12 +35,14 @@ class ThemeTest extends PHPUnit_Framework_TestCase
     protected function setUp()
     {
         $this->object = new Theme();
+        $this->backup = $_SESSION['PMA_Theme'];
         $_SESSION['PMA_Theme'] = $this->object;
         $GLOBALS['PMA_Config'] = new PMA\libraries\Config();
         $GLOBALS['PMA_Config']->enableBc();
         $GLOBALS['text_dir'] = 'ltr';
         include 'themes/pmahomme/layout.inc.php';
         $GLOBALS['server'] = '99';
+        $GLOBALS['collation_connection'] = 'utf-8';
     }
 
     /**
@@ -48,6 +53,7 @@ class ThemeTest extends PHPUnit_Framework_TestCase
      */
     protected function tearDown()
     {
+        $_SESSION['PMA_Theme'] = $this->backup;
     }
 
     /**
@@ -123,6 +129,40 @@ class ThemeTest extends PHPUnit_Framework_TestCase
     }
 
     /**
+     * Test for Theme::loadCss
+     *
+     * @param string $theme Path to theme files
+     *
+     * @return void
+     *
+     * @dataProvider listThemes
+     */
+    public function testLoadCss($theme)
+    {
+        $newTheme = Theme::load($theme);
+        ob_start();
+        $ret = $newTheme->loadCss();
+        $out = ob_get_contents();
+        ob_end_clean();
+        $this->assertTrue($ret);
+        $this->assertContains('FILE: navigation.css.php', $out);
+        $this->assertContains('.ic_b_bookmark', $out);
+    }
+
+    /**
+     * Data provider for Theme::loadCss test
+     *
+     * @return array with theme paths
+     */
+    public function listThemes()
+    {
+        return array(
+            array('./themes/original'),
+            array('./themes/pmahomme/'),
+        );
+    }
+
+    /**
      * Test for Theme::load
      *
      * @return void
@@ -136,14 +176,11 @@ class ThemeTest extends PHPUnit_Framework_TestCase
      * Test fir Theme::checkImgPath
      *
      * @return void
-     * @expectedException PHPUnit_Framework_Error
      */
-    public function testCheckImgPathBad()
+    public function testCheckImgPathFallback()
     {
-        $GLOBALS['cfg']['ThemePath'] = 'nowhere';
         $this->object->setPath('path/to/nowhere');
-
-        $this->assertFalse($this->object->checkImgPath());
+        $this->assertTrue($this->object->checkImgPath());
     }
 
     /**
@@ -155,35 +192,6 @@ class ThemeTest extends PHPUnit_Framework_TestCase
     {
         $this->object->setPath('./themes/original');
         $this->assertTrue($this->object->checkImgPath());
-    }
-
-    /**
-     * Test for Theme::checkImgPath
-     *
-     * @return void
-     */
-    public function testCheckImgPathGlobals()
-    {
-        $this->object->setPath('/this/is/wrong/path');
-        $GLOBALS['cfg']['ThemePath'] = 'themes';
-        $this->assertTrue($this->object->checkImgPath());
-    }
-
-    /**
-     * Test for Theme::checkImgPath
-     *
-     * @return void
-     * @expectedException PHPUnit_Framework_Error
-     */
-    public function testCheckImgPathGlobalsWrongPath()
-    {
-        $prevThemePath = $GLOBALS['cfg']['ThemePath'];
-        $GLOBALS['cfg']['ThemePath'] = 'no_themes';
-
-        $this->object->setPath('/this/is/wrong/path');
-        $this->object->checkImgPath();
-
-        $GLOBALS['cfg']['ThemePath'] = $prevThemePath;
     }
 
     /**
@@ -285,21 +293,8 @@ class ThemeTest extends PHPUnit_Framework_TestCase
             '<div class="theme_preview"><h2> (0.0.0.0) </h2><p><a class="take_'
             . 'theme" name="" href="index.php?set_theme=&amp;server=99&amp;lang=en'
             . '&amp;collation_connection=utf-8'
-            . '&amp;token=token">No preview available.[ <strong>take it</strong> ]'
+            . '">No preview available.[ <strong>take it</strong> ]'
             . '</a></p></div>'
-        );
-    }
-
-    /**
-     * Test for getCssIEClearFilter
-     *
-     * @return void
-     */
-    public function testGetCssIEClearFilter()
-    {
-        $this->assertEquals(
-            $this->object->getCssIEClearFilter(),
-            ''
         );
     }
 

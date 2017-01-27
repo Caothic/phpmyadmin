@@ -10,6 +10,8 @@ namespace PMA\libraries\plugins\auth;
 
 use PMA\libraries\plugins\AuthenticationPlugin;
 use PMA;
+use PMA\libraries\Response;
+use PMA\libraries\URL;
 
 /**
  * Handles the config authentication method
@@ -25,7 +27,7 @@ class AuthenticationConfig extends AuthenticationPlugin
      */
     public function auth()
     {
-        $response = PMA\libraries\Response::getInstance();
+        $response = Response::getInstance();
         if ($response->isAjax()) {
             $response->setRequestStatus(false);
             // reload_flag removes the token parameter from the URL and reloads
@@ -61,13 +63,7 @@ class AuthenticationConfig extends AuthenticationPlugin
      */
     public function authSetUser()
     {
-        // try to workaround PHP 5 session garbage collection which
-        // looks at the session file's last modified time
-        if (isset($_REQUEST['access_time'])) {
-            $_SESSION['last_access_time'] = time() - $_REQUEST['access_time'];
-        } else {
-            $_SESSION['last_access_time'] = time();
-        }
+        $this->setSessionAccessTime();
 
         return true;
     }
@@ -85,7 +81,7 @@ class AuthenticationConfig extends AuthenticationPlugin
         }
 
         /* HTML header */
-        $response = PMA\libraries\Response::getInstance();
+        $response = Response::getInstance();
         $response->getFooter()
             ->setMinimal();
         $header = $response->getHeader();
@@ -109,7 +105,7 @@ class AuthenticationConfig extends AuthenticationPlugin
         } else {
             // Check whether user has configured something
             if ($GLOBALS['PMA_Config']->source_mtime == 0) {
-                echo '<p>' . sprintf(
+                echo '<p>' , sprintf(
                     __(
                         'You probably did not create a configuration file.'
                         . ' You might want to use the %1$ssetup script%2$s to'
@@ -117,7 +113,7 @@ class AuthenticationConfig extends AuthenticationPlugin
                     ),
                     '<a href="setup/">',
                     '</a>'
-                ) . '</p>' . "\n";
+                ) , '</p>' , "\n";
             } elseif (!isset($GLOBALS['errno'])
                 || (isset($GLOBALS['errno']) && $GLOBALS['errno'] != 2002)
                 && $GLOBALS['errno'] != 2003
@@ -152,27 +148,27 @@ class AuthenticationConfig extends AuthenticationPlugin
         echo '</td>
         </tr>
         <tr>
-            <td>' . "\n";
+            <td>' , "\n";
         echo '<a href="'
-            . PMA\libraries\Util::getScriptNameForOption(
+            , PMA\libraries\Util::getScriptNameForOption(
                 $GLOBALS['cfg']['DefaultTabServer'],
                 'server'
             )
-            . PMA_URL_getCommon(array()) . '" class="button disableAjax">'
-            . __('Retry to connect')
-            . '</a>' . "\n";
+            , URL::getCommon() , '" class="button disableAjax">'
+            , __('Retry to connect')
+            , '</a>' , "\n";
         echo '</td>
-        </tr>' . "\n";
+        </tr>' , "\n";
         if (count($GLOBALS['cfg']['Servers']) > 1) {
             // offer a chance to login to other servers if the current one failed
             include_once './libraries/select_server.lib.php';
-            echo '<tr>' . "\n";
-            echo ' <td>' . "\n";
+            echo '<tr>' , "\n";
+            echo ' <td>' , "\n";
             echo PMA_selectServer(true, true);
-            echo ' </td>' . "\n";
-            echo '</tr>' . "\n";
+            echo ' </td>' , "\n";
+            echo '</tr>' , "\n";
         }
-        echo '</table>' . "\n";
+        echo '</table>' , "\n";
         if (!defined('TESTSUITE')) {
             exit;
         }

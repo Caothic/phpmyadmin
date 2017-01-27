@@ -1,7 +1,6 @@
 <?php
 /* vim: set expandtab sw=4 ts=4 sts=4: */
 /**
- * Test for PMA_warnMissingExtension() from libraries/core.lib.php
  * PMA_warnMissingExtension warns or fails on missing extension.
  *
  * @package PhpMyAdmin-test
@@ -12,17 +11,7 @@
  */
 use PMA\libraries\Theme;
 
-require_once 'libraries/vendor_config.php';
-require_once 'libraries/core.lib.php';
-require_once 'libraries/select_lang.lib.php';
-
-
-
-require_once 'libraries/js_escape.lib.php';
-require_once 'libraries/sanitizing.lib.php';
-
 /**
- * Test for PMA_warnMissingExtension() from libraries/core.lib.php
  * PMA_warnMissingExtension warns or fails on missing extension.
  *
  * @package PhpMyAdmin-test
@@ -43,8 +32,6 @@ class PMA_WarnMissingExtension_Test extends PHPUnit_Framework_TestCase
             'verbose' => 'verbose',
         );
         $GLOBALS['cfg']['OBGzip'] = false;
-        $_SESSION['PMA_Theme'] = new Theme();
-        $GLOBALS['pmaThemeImage'] = 'theme/';
         $GLOBALS['pmaThemePath'] = $_SESSION['PMA_Theme']->getPath();
         $GLOBALS['server'] = 1;
         $GLOBALS['db'] = '';
@@ -66,7 +53,7 @@ class PMA_WarnMissingExtension_Test extends PHPUnit_Framework_TestCase
             . '" target="Documentation"><em>' . $ext
             . '</em></a> extension is missing. Please check your PHP configuration.';
 
-        $this->expectOutputRegex('@' . preg_quote($warn) . '@');
+        $this->expectOutputRegex('@' . preg_quote($warn, '@') . '@');
 
         PMA_warnMissingExtension($ext, true);
     }
@@ -91,6 +78,6 @@ class PMA_WarnMissingExtension_Test extends PHPUnit_Framework_TestCase
         $printed = ob_get_contents();
         ob_end_clean();
 
-        $this->assertGreaterThan(0, /*overload*/mb_strpos($printed, $warn));
+        $this->assertGreaterThan(0, mb_strpos($printed, $warn));
     }
 }

@@ -12,15 +12,15 @@
 use PMA\libraries\Tracker;
 
 require_once 'libraries/database_interface.inc.php';
-require_once 'libraries/php-gettext/gettext.inc';
 require_once 'libraries/relation.lib.php';
+require_once 'test/PMATestCase.php';
 
 /**
  * Tests for PMA\libraries\Tracker
  *
  * @package PhpMyAdmin-test
  */
-class TrackerTest extends PHPUnit_Framework_TestCase
+class TrackerTest extends PMATestCase
 {
 
     /**
@@ -41,13 +41,20 @@ class TrackerTest extends PHPUnit_Framework_TestCase
         $GLOBALS['cfg']['Server']['tracking_default_statements'] = '';
         $GLOBALS['cfg']['Server']['tracking_version_auto_create'] = '';
         $GLOBALS['cfg']['Server']['DisableIS'] = false;
-        $GLOBALS['cfg']['DBG']['sql'] = false;
 
         $_SESSION['relation'][$GLOBALS['server']] = array(
             'PMA_VERSION' => PMA_VERSION,
             'db' => 'pmadb',
             'tracking' => 'tracking'
         );
+
+        $dbi = $this->getMockBuilder('PMA\libraries\DatabaseInterface')
+            ->disableOriginalConstructor()
+            ->getMock();
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
+
+        $cfg['dbi'] = $dbi;
     }
     /**
      * Test for Tracker::enable
@@ -319,6 +326,9 @@ class TrackerTest extends PHPUnit_Framework_TestCase
         $dbi->expects($this->any())->method('query')
             ->will($this->returnValueMap($queryResults));
 
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
+
         $GLOBALS['dbi'] = $dbi;
         $this->assertEquals(
             'executed',
@@ -349,6 +359,8 @@ class TrackerTest extends PHPUnit_Framework_TestCase
             ->method('query')
             ->with($sql_query)
             ->will($this->returnValue('executed'));
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
 
         $GLOBALS['dbi'] = $dbi;
         $this->assertEquals(
@@ -401,6 +413,9 @@ class TrackerTest extends PHPUnit_Framework_TestCase
             ->with($expectedMainQuery, null, 0, false)
             ->will($this->returnValue("executed"));
 
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
+
         $GLOBALS['dbi'] = $dbi;
         $this->assertEquals(
             'executed',
@@ -444,6 +459,9 @@ class TrackerTest extends PHPUnit_Framework_TestCase
             ->method('query')
             ->with($sql_query, null, 0, false)
             ->will($this->returnValue("executed"));
+
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
 
         $GLOBALS['dbi'] = $dbi;
 
@@ -517,15 +535,18 @@ class TrackerTest extends PHPUnit_Framework_TestCase
         " AND `table_name` = 'pma_table' " .
         " AND `version` = '1.0' ";
 
-        $dbi->expects($this->at(0))
-            ->method('query')
-            ->with($sql_query_1, null, 0, false)
-            ->will($this->returnValue("executed_1"));
+        $dbi->method('query')
+            ->will(
+                $this->returnValueMap(
+                    array(
+                        array($sql_query_1, null, 0, false, "executed_1"),
+                        array($sql_query_2, null, 0, false, "executed_2")
+                    )
+                )
+            );
 
-        $dbi->expects($this->at(1))
-            ->method('query')
-            ->with($sql_query_2, null, 0, false)
-            ->will($this->returnValue("executed_2"));
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
 
         $GLOBALS['dbi'] = $dbi;
 
@@ -588,27 +609,32 @@ class TrackerTest extends PHPUnit_Framework_TestCase
      */
     public function testGetTrackedData($fetchArrayReturn, $expectedArray)
     {
-        $sql_query = " SELECT * FROM `pmadb`.`tracking`" .
-            " WHERE `db_name` = 'pma''db' " .
-            " AND `table_name` = 'pma''table' " .
-            " AND `version` = '1.0' " .
-            " ORDER BY `version` DESC LIMIT 1";
-
         $GLOBALS['controllink'] = null;
 
         $dbi = $this->getMockBuilder('PMA\libraries\DatabaseInterface')
             ->disableOriginalConstructor()
             ->getMock();
 
-        $dbi->expects($this->at(0))
+        $dbi->expects($this->once())
             ->method('query')
-            ->with($sql_query, null, 0, false)
             ->will($this->returnValue("executed_1"));
 
-        $dbi->expects($this->at(1))
+        $dbi->expects($this->once())
             ->method('fetchAssoc')
             ->with("executed_1")
             ->will($this->returnValue($fetchArrayReturn));
+
+        $dbi->expects($this->any())
+            ->method('escapeString')
+            ->will(
+                $this->returnValueMap(
+                    array(
+                        array("pma'db", "pma\'db"),
+                        array("pma'table", "pma\'table"),
+                        array("1.0", "1.0"),
+                    )
+                )
+            );
 
         $GLOBALS['dbi'] = $dbi;
         $result = Tracker::getTrackedData("pma'db", "pma'table", "1.0");
@@ -771,99 +797,99 @@ class TrackerTest extends PHPUnit_Framework_TestCase
         );
         */
         $query[] = array(
-            "- CREATE VIEW v AS SELECT * FROM t;",
+            "CREATE VIEW v AS SELECT * FROM t;",
             "DDL",
             "CREATE VIEW",
             "v",
         );
         $query[] = array(
-            "- ALTER VIEW db1.v AS SELECT col1, col2, col3, col4 FROM t",
+            "ALTER VIEW db1.v AS SELECT col1, col2, col3, col4 FROM t",
             "DDL",
             "ALTER VIEW",
             "v"
         );
         $query[] = array(
-            "- DROP VIEW db1.v;",
+            "DROP VIEW db1.v;",
             "DDL",
             "DROP VIEW",
             "v"
         );
         $query[] = array(
-            "- DROP VIEW IF EXISTS db1.v;",
+            "DROP VIEW IF EXISTS db1.v;",
             "DDL",
             "DROP VIEW",
             "v"
         );
         $query[] = array(
-            "- CREATE DATABASE db1; -",
+            "CREATE DATABASE db1;",
             "DDL",
             "CREATE DATABASE",
             "",
             "db1"
         );
         $query[] = array(
-            "- ALTER DATABASE db1; -",
+            "ALTER DATABASE db1;",
             "DDL",
             "ALTER DATABASE",
             ""
         );
         $query[] = array(
-            "- DROP DATABASE db1; -",
+            "DROP DATABASE db1;",
             "DDL",
             "DROP DATABASE",
             "",
             "db1"
         );
         $query[] = array(
-            "- CREATE TABLE db1.t1 (c1 INT);",
+            "CREATE TABLE db1.t1 (c1 INT);",
             "DDL",
             "CREATE TABLE",
             "t1"
         );
         $query[] =  array(
-            "- ALTER TABLE db1.t1 ADD c2 TEXT;",
+            "ALTER TABLE db1.t1 ADD c2 TEXT;",
             "DDL",
             "ALTER TABLE",
             "t1"
         );
         $query[] =  array(
-            "- DROP TABLE db1.t1",
+            "DROP TABLE db1.t1",
             "DDL",
             "DROP TABLE",
             "t1"
         );
         $query[] =  array(
-            "- DROP TABLE IF EXISTS db1.t1",
+            "DROP TABLE IF EXISTS db1.t1",
             "DDL",
             "DROP TABLE",
             "t1"
         );
         $query[] =  array(
-            "- CREATE INDEX ind ON db1.t1 (c2(10));",
+            "CREATE INDEX ind ON db1.t1 (c2(10));",
             "DDL",
             "CREATE INDEX",
             "t1"
         );
         $query[] =  array(
-            "- CREATE UNIQUE INDEX ind ON db1.t1 (c2(10));",
+            "CREATE UNIQUE INDEX ind ON db1.t1 (c2(10));",
             "DDL",
             "CREATE INDEX",
             "t1"
         );
         $query[] =  array(
-            "- CREATE SPATIAL INDEX ind ON db1.t1 (c2(10));",
+            "CREATE SPATIAL INDEX ind ON db1.t1 (c2(10));",
             "DDL",
             "CREATE INDEX",
             "t1"
         );
         $query[] =  array(
-            "- DROP INDEX ind ON db1.t1;",
+            "DROP INDEX ind ON db1.t1;",
             "DDL",
             "DROP INDEX",
             "t1"
         );
         $query[] =  array(
-            "- RENAME TABLE db1.t1 TO db1.t2",
+            "RENAME TABLE db1.t1 TO db1.t2",
             "DDL",
             "RENAME TABLE",
             "t1",
@@ -871,25 +897,25 @@ class TrackerTest extends PHPUnit_Framework_TestCase
             "t2"
         );
         $query[] =  array(
-            "- UPDATE db1.t1 SET a = 2",
+            "UPDATE db1.t1 SET a = 2",
             "DML",
             "UPDATE",
             "t1"
         );
         $query[] =  array(
-            "- INSERT INTO db1.t1 (a, b, c) VALUES(1, 2, 3)",
+            "INSERT INTO db1.t1 (a, b, c) VALUES(1, 2, 3)",
             "DML",
             "INSERT",
             "t1"
         );
         $query[] =  array(
-            "- DELETE FROM db1.t1",
+            "DELETE FROM db1.t1",
             "DML",
             "DELETE",
             "t1"
         );
         $query[] =  array(
-            "- TRUNCATE db1.t1",
+            "TRUNCATE db1.t1",
             "DML",
             "TRUNCATE",
             "t1"

@@ -11,24 +11,23 @@
  */
 use PMA\libraries\plugins\import\ImportCsv;
 use PMA\libraries\Theme;
+use PMA\libraries\File;
 
 $GLOBALS['server'] = 0;
 
 /*
  * Include to test.
  */
-require_once 'libraries/url_generating.lib.php';
-require_once 'libraries/php-gettext/gettext.inc';
 require_once 'libraries/database_interface.inc.php';
 require_once 'libraries/import.lib.php';
-require_once 'libraries/sanitizing.lib.php';
+require_once 'test/PMATestCase.php';
 
 /**
  * Tests for PMA\libraries\plugins\import\ImportCsv class
  *
  * @package PhpMyAdmin-test
  */
-class ImportCsvTest extends PHPUnit_Framework_TestCase
+class ImportCsvTest extends PMATestCase
 {
     /**
      * @var ImportCsv
@@ -48,22 +47,21 @@ class ImportCsvTest extends PHPUnit_Framework_TestCase
         $GLOBALS['plugin_param'] = "csv";
         $this->object = new ImportCsv();
 
+        unset($GLOBALS['db']);
+
         //setting
         $GLOBALS['finished'] = false;
         $GLOBALS['read_limit'] = 100000000;
         $GLOBALS['offset'] = 0;
         $GLOBALS['cfg']['Server']['DisableIS'] = false;
-        $GLOBALS['cfg']['ServerDefault'] = 0;
-        $GLOBALS['cfg']['AllowUserDropDatabase'] = false;
-        $GLOBALS['cfg']['ShowHint'] = true;
 
         $GLOBALS['import_file'] = 'test/test_data/db_test.csv';
         $GLOBALS['import_text'] = 'ImportCsv_Test';
         $GLOBALS['compression'] = 'none';
         $GLOBALS['read_multiply'] = 10;
         $GLOBALS['import_type'] = 'Xml';
-        $GLOBALS['pmaThemeImage'] = 'image';
-        $GLOBALS['import_handle'] = @fopen($GLOBALS['import_file'], 'r');
+        $GLOBALS['import_handle'] = new File($GLOBALS['import_file']);
+        $GLOBALS['import_handle']->open();
 
         //separator for csv
         $GLOBALS['csv_terminated'] = "\015";
@@ -72,8 +70,6 @@ class ImportCsvTest extends PHPUnit_Framework_TestCase
         $GLOBALS['csv_new_line'] = 'auto';
 
         //$_SESSION
-        $_SESSION['PMA_Theme'] = Theme::load('./themes/pmahomme');
-        $_SESSION['PMA_Theme'] = new Theme();
 
         //Mock DBI
         $dbi = $this->getMockBuilder('PMA\libraries\DatabaseInterface')

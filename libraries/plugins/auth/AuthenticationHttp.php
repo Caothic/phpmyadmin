@@ -12,6 +12,7 @@ namespace PMA\libraries\plugins\auth;
 use PMA\libraries\plugins\AuthenticationPlugin;
 use PMA\libraries\Message;
 use PMA\libraries\Response;
+use PMA\libraries\Config;
 
 /**
  * Handles the HTTP authentication methods
@@ -49,18 +50,6 @@ class AuthenticationHttp extends AuthenticationPlugin
      */
     public function authForm()
     {
-        /* Perform logout to custom URL */
-        if (!empty($_REQUEST['old_usr'])
-            && !empty($GLOBALS['cfg']['Server']['LogoutURL'])
-        ) {
-            PMA_sendHeaderLocation($GLOBALS['cfg']['Server']['LogoutURL']);
-            if (!defined('TESTSUITE')) {
-                exit;
-            } else {
-                return false;
-            }
-        }
-
         if (empty($GLOBALS['cfg']['Server']['auth_http_realm'])) {
             if (empty($GLOBALS['cfg']['Server']['verbose'])) {
                 $server_message = $GLOBALS['cfg']['Server']['host'];
@@ -71,18 +60,20 @@ class AuthenticationHttp extends AuthenticationPlugin
         } else {
             $realm_message = $GLOBALS['cfg']['Server']['auth_http_realm'];
         }
+
+        $response = Response::getInstance();
+
         // remove non US-ASCII to respect RFC2616
         $realm_message = preg_replace('/[^\x20-\x7e]/i', '', $realm_message);
-        header('WWW-Authenticate: Basic realm="' . $realm_message . '"');
-        header('HTTP/1.0 401 Unauthorized');
+        $response->header('WWW-Authenticate: Basic realm="' . $realm_message . '"');
+        $response->header('HTTP/1.0 401 Unauthorized');
         if (php_sapi_name() !== 'cgi-fcgi') {
-            header('status: 401 Unauthorized');
+            $response->header('status: 401 Unauthorized');
         }
 
         /* HTML header */
-        $response = Response::getInstance();
-        $response->getFooter()
-            ->setMinimal();
+        $footer = $response->getFooter();
+        $footer->setMinimal();
         $header = $response->getHeader();
         $header->setTitle(__('Access denied!'));
         $header->disableMenuAndConsole();
@@ -99,9 +90,7 @@ class AuthenticationHttp extends AuthenticationPlugin
         );
         $response->addHTML('</h3>');
 
-        if (file_exists(CUSTOM_FOOTER_FILE)) {
-            include CUSTOM_FOOTER_FILE;
-        }
+        $response->addHTML(Config::renderFooter());
 
         if (!defined('TESTSUITE')) {
             exit;
@@ -113,10 +102,8 @@ class AuthenticationHttp extends AuthenticationPlugin
     /**
      * Gets advanced authentication settings
      *
-     * @global  string $PHP_AUTH_USER          the username if register_globals is
-     *          on
-     * @global  string $PHP_AUTH_PW            the password if register_globals is
-     *          on
+     * @global string $PHP_AUTH_USER the username
+     * @global string $PHP_AUTH_PW   the password
      *
      * @return boolean   whether we get authentication settings or not
      */
@@ -124,12 +111,7 @@ class AuthenticationHttp extends AuthenticationPlugin
     {
         global $PHP_AUTH_USER, $PHP_AUTH_PW;
 
-        if ($GLOBALS['token_provided'] && $GLOBALS['token_mismatch']) {
-            return false;
-        }
-
-        // Grabs the $PHP_AUTH_USER variable whatever are the values of the
-        // 'register_globals' and the 'variables_order' directives
+        // Grabs the $PHP_AUTH_USER variable
         if (empty($PHP_AUTH_USER)) {
             if (PMA_getenv('PHP_AUTH_USER')) {
                 $PHP_AUTH_USER = PMA_getenv('PHP_AUTH_USER');
@@ -142,18 +124,15 @@ class AuthenticationHttp extends AuthenticationPlugin
             } elseif (PMA_getenv('AUTH_USER')) {
                 // WebSite Professional
                 $PHP_AUTH_USER = PMA_getenv('AUTH_USER');
-            } elseif (PMA_getenv('HTTP_AUTHORIZATION')
-                && false === strpos(PMA_getenv('HTTP_AUTHORIZATION'), '<')
-            ) {
-                // IIS, might be encoded, see below; also prevent XSS
+            } elseif (PMA_getenv('HTTP_AUTHORIZATION')) {
+                // IIS, might be encoded, see below
                 $PHP_AUTH_USER = PMA_getenv('HTTP_AUTHORIZATION');
             } elseif (PMA_getenv('Authorization')) {
                 // FastCGI, might be encoded, see below
                 $PHP_AUTH_USER = PMA_getenv('Authorization');
             }
         }
-        // Grabs the $PHP_AUTH_PW variable whatever are the values of the
-        // 'register_globals' and the 'variables_order' directives
+        // Grabs the $PHP_AUTH_PW variable
         if (empty($PHP_AUTH_PW)) {
             if (PMA_getenv('PHP_AUTH_PW')) {
                 $PHP_AUTH_PW = PMA_getenv('PHP_AUTH_PW');
@@ -164,6 +143,10 @@ class AuthenticationHttp extends AuthenticationPlugin
                 // WebSite Professional
                 $PHP_AUTH_PW = PMA_getenv('AUTH_PASSWORD');
             }
+        }
+        // Sanitize empty password login
+        if (is_null($PHP_AUTH_PW)) {
+            $PHP_AUTH_PW = '';
         }
 
         // Decode possibly encoded information (used by IIS/CGI/FastCGI)
@@ -181,16 +164,15 @@ class AuthenticationHttp extends AuthenticationPlugin
             unset($usr_pass);
         }
 
+        // sanitize username
+        $PHP_AUTH_USER = PMA_sanitizeMySQLUser($PHP_AUTH_USER);
+
         // User logged out -> ensure the new username is not the same
         $old_usr = isset($_REQUEST['old_usr']) ? $_REQUEST['old_usr'] : '';
-        if (!empty($old_usr)
-            && (isset($PHP_AUTH_USER) && $old_usr == $PHP_AUTH_USER)
+        if (! empty($old_usr)
+            && (isset($PHP_AUTH_USER) && hash_equals($old_usr, $PHP_AUTH_USER))
         ) {
             $PHP_AUTH_USER = '';
-            // -> delete user's choices that were stored in session
-            if (!defined('TESTSUITE')) {
-                session_destroy();
-            }
         }
 
         // Returns whether we get authentication settings or not
@@ -218,12 +200,12 @@ class AuthenticationHttp extends AuthenticationPlugin
 
         // Ensures valid authentication mode, 'only_db', bookmark database and
         // table names and relation table name are used
-        if ($cfg['Server']['user'] != $PHP_AUTH_USER) {
+        if (! hash_equals($cfg['Server']['user'], $PHP_AUTH_USER)) {
             $servers_cnt = count($cfg['Servers']);
             for ($i = 1; $i <= $servers_cnt; $i++) {
                 if (isset($cfg['Servers'][$i])
                     && ($cfg['Servers'][$i]['host'] == $cfg['Server']['host']
-                    && $cfg['Servers'][$i]['user'] == $PHP_AUTH_USER)
+                    && hash_equals($cfg['Servers'][$i]['user'], $PHP_AUTH_USER))
                 ) {
                     $server = $i;
                     $cfg['Server'] = $cfg['Servers'][$i];
@@ -239,9 +221,7 @@ class AuthenticationHttp extends AuthenticationPlugin
         unset($GLOBALS['PHP_AUTH_PW']);
         unset($_SERVER['PHP_AUTH_PW']);
 
-        // try to workaround PHP 5 session garbage collection which
-        // looks at the session file's last modified time
-        $_SESSION['last_access_time'] = time();
+        $this->setSessionAccessTime();
 
         return true;
     }
@@ -266,13 +246,12 @@ class AuthenticationHttp extends AuthenticationPlugin
     }
 
     /**
-     * Callback when user changes password.
+     * Returns URL for login form.
      *
-     * @param string $password New password to set
-     *
-     * @return void
+     * @return string
      */
-    public function handlePasswordChange($password)
+    public function getLoginFormURL()
     {
+        return './index.php?old_usr=' . $GLOBALS['PHP_AUTH_USER'];
     }
 }

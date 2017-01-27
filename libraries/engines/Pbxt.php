@@ -10,10 +10,6 @@ namespace PMA\libraries\engines;
 use PMA;
 use PMA\libraries\StorageEngine;
 
-if (!defined('PHPMYADMIN')) {
-    exit;
-}
-
 /**
  * The PBXT storage engine
  *
@@ -185,17 +181,11 @@ class Pbxt extends StorageEngine
                 'Documentation and further information about PBXT'
                 . ' can be found on the %sPrimeBase XT Home Page%s.'
             ),
-            '<a href="' . PMA_linkURL('http://www.primebase.com/xt/')
-            . '" target="_blank">',
+            '<a href="' . PMA_linkURL('https://mariadb.com/kb/en/mariadb/about-pbxt/')
+            . '" rel="noopener noreferrer" target="_blank">',
             '</a>'
         )
-        . '</p>' . "\n"
-        . '<h3>' . __('Related Links') . '</h3>' . "\n"
-        . '<ul>' . "\n"
-        . '<li><a href="' . PMA_linkURL('http://pbxt.blogspot.com/')
-        . '" target="_blank">' . __('The PrimeBase XT Blog by Paul McCullagh')
-        . '</a></li>' . "\n"
-        . '</ul>' . "\n";
+        . '</p>' . "\n";
 
         return $output;
     }

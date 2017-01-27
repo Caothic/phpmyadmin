@@ -24,12 +24,32 @@ use PMA;
  */
 class ExportJson extends ExportPlugin
 {
+    private $first = true;
+
     /**
      * Constructor
      */
     public function __construct()
     {
         $this->setProperties();
+    }
+
+    /**
+     * Encodes the data into JSON
+     *
+     * @param mixed $data Data to encode
+     *
+     * @return string
+     */
+    public function encode($data)
+    {
+        if (isset($GLOBALS['json_pretty_print'])
+            && $GLOBALS['json_pretty_print']
+        ) {
+            return json_encode($data, JSON_PRETTY_PRINT);
+        } else {
+            return json_encode($data);
+        }
     }
 
     /**
@@ -48,26 +68,21 @@ class ExportJson extends ExportPlugin
         // create the root group that will be the options field for
         // $exportPluginProperties
         // this will be shown as "Format specific options"
-        $exportSpecificOptions = new OptionsPropertyRootGroup();
-        $exportSpecificOptions->setName("Format Specific Options");
+        $exportSpecificOptions = new OptionsPropertyRootGroup(
+            "Format Specific Options"
+        );
 
         // general options main group
-        $generalOptions = new OptionsPropertyMainGroup();
-        $generalOptions->setName("general_opts");
+        $generalOptions = new OptionsPropertyMainGroup("general_opts");
         // create primary items and add them to the group
-        $leaf = new HiddenPropertyItem();
-        $leaf->setName("structure_or_data");
+        $leaf = new HiddenPropertyItem("structure_or_data");
         $generalOptions->addProperty($leaf);
 
-        // JSON_PRETTY_PRINT is available since 5.4.0
-        if (version_compare(PHP_VERSION, '5.4.0', '>=')) {
-            $leaf = new BoolPropertyItem();
-            $leaf->setName('pretty_print');
-            $leaf->setText(
-                __('Output pretty-printed JSON (Use human-readable formatting)')
-            );
-            $generalOptions->addProperty($leaf);
-        }
+        $leaf = new BoolPropertyItem(
+            'pretty_print',
+            __('Output pretty-printed JSON (Use human-readable formatting)')
+        );
+        $generalOptions->addProperty($leaf);
 
         // add the main group to the root group
         $exportSpecificOptions->addProperty($generalOptions);
@@ -84,14 +99,17 @@ class ExportJson extends ExportPlugin
      */
     public function exportHeader()
     {
-        PMA_exportOutputHandler(
-            '/**' . $GLOBALS['crlf']
-            . ' Export to JSON plugin for PHPMyAdmin' . $GLOBALS['crlf']
-            . ' @version 0.1' . $GLOBALS['crlf']
-            . ' */' . $GLOBALS['crlf'] . $GLOBALS['crlf']
+        global $crlf;
+
+        $meta = array(
+            'type' => 'header',
+            'version' => PMA_VERSION,
+            'comment' => 'Export to JSON plugin for PHPMyAdmin',
         );
 
-        return true;
+        return PMA_exportOutputHandler(
+            '[' . $crlf . $this->encode($meta) . ',' . $crlf
+        );
     }
 
     /**
@@ -101,7 +119,9 @@ class ExportJson extends ExportPlugin
      */
     public function exportFooter()
     {
-        return true;
+        global $crlf;
+
+        return PMA_exportOutputHandler(']' . $crlf);
     }
 
     /**
@@ -114,14 +134,20 @@ class ExportJson extends ExportPlugin
      */
     public function exportDBHeader($db, $db_alias = '')
     {
+        global $crlf;
+
         if (empty($db_alias)) {
             $db_alias = $db;
         }
-        PMA_exportOutputHandler(
-            '// Database \'' . $db_alias . '\'' . $GLOBALS['crlf']
+
+        $meta = array(
+            'type' => 'database',
+            'name' => $db_alias
         );
 
-        return true;
+        return PMA_exportOutputHandler(
+            $this->encode($meta) . ',' . $crlf
+        );
     }
 
     /**
@@ -174,6 +200,28 @@ class ExportJson extends ExportPlugin
         $table_alias = $table;
         $this->initAlias($aliases, $db_alias, $table_alias);
 
+        if (! $this->first) {
+            if (!PMA_exportOutputHandler(',')) {
+                return false;
+            }
+        } else {
+            $this->first = false;
+        }
+
+        $buffer = $this->encode(
+            array(
+                'type' => 'table',
+                'name' => $table_alias,
+                'database' => $db_alias,
+                'data' => "@@DATA@@"
+            )
+        );
+        list($header, $footer) = explode('"@@DATA@@"', $buffer);
+
+        if (!PMA_exportOutputHandler($header . $crlf . '[' . $crlf)) {
+            return false;
+        }
+
         $result = $GLOBALS['dbi']->query(
             $sql_query,
             null,
@@ -196,16 +244,10 @@ class ExportJson extends ExportPlugin
             $record_cnt++;
 
             // Output table name as comment if this is the first record of the table
-            if ($record_cnt == 1) {
-                $buffer = $crlf . '// ' . $db_alias . '.' . $table_alias
-                    . $crlf . $crlf;
-                $buffer .= '[';
-            } else {
-                $buffer = ', ';
-            }
-
-            if (!PMA_exportOutputHandler($buffer)) {
-                return false;
+            if ($record_cnt > 1) {
+                if (!PMA_exportOutputHandler(',' . $crlf)) {
+                    return false;
+                }
             }
 
             $data = array();
@@ -214,23 +256,13 @@ class ExportJson extends ExportPlugin
                 $data[$columns[$i]] = $record[$i];
             }
 
-            if (isset($GLOBALS['json_pretty_print'])
-                && $GLOBALS['json_pretty_print']
-            ) {
-                $encoded = json_encode($data, JSON_PRETTY_PRINT);
-            } else {
-                $encoded = json_encode($data);
-            }
-
-            if (!PMA_exportOutputHandler($encoded)) {
+            if (!PMA_exportOutputHandler($this->encode($data))) {
                 return false;
             }
         }
 
-        if ($record_cnt) {
-            if (!PMA_exportOutputHandler(']' . $crlf)) {
-                return false;
-            }
+        if (!PMA_exportOutputHandler($crlf . ']' . $crlf . $footer . $crlf)) {
+            return false;
         }
 
         $GLOBALS['dbi']->freeResult($result);

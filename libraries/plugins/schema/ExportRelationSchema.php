@@ -9,10 +9,7 @@
 namespace PMA\libraries\plugins\schema;
 
 use PMA;
-
-if (!defined('PHPMYADMIN')) {
-    exit;
-}
+use PMA\libraries\URL;
 
 /**
  * This class is inherited by all schema classes
@@ -57,7 +54,7 @@ class ExportRelationSchema
      */
     public function setPageNumber($value)
     {
-        $this->pageNumber = $value;
+        $this->pageNumber = intval($value);
     }
 
     /**
@@ -289,16 +286,16 @@ class ExportRelationSchema
      */
     public static function dieSchema($pageNumber, $type = '', $error_message = '')
     {
-        echo "<p><strong>" . __("SCHEMA ERROR: ") . $type . "</strong></p>" . "\n";
+        echo "<p><strong>" , __("SCHEMA ERROR: ") , $type , "</strong></p>" , "\n";
         if (!empty($error_message)) {
             $error_message = htmlspecialchars($error_message);
         }
-        echo '<p>' . "\n";
-        echo '    ' . $error_message . "\n";
-        echo '</p>' . "\n";
+        echo '<p>' , "\n";
+        echo '    ' , $error_message , "\n";
+        echo '</p>' , "\n";
         echo '<a href="db_designer.php'
-            . PMA_URL_getCommon(array('db' => $GLOBALS['db']))
-            . '&page=' . htmlspecialchars($pageNumber) . '">' . __('Back') . '</a>';
+            , URL::getCommon(array('db' => $GLOBALS['db']))
+            , '&page=' . htmlspecialchars($pageNumber) , '">' , __('Back') , '</a>';
         echo "\n";
         exit;
     }

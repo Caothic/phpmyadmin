@@ -13,18 +13,16 @@ use PMA\libraries\Table;
 use PMA\libraries\Theme;
 use PMA\libraries\Util;
 
-require_once 'libraries/mysql_charsets.lib.php';
 require_once 'libraries/database_interface.inc.php';
-require_once 'libraries/php-gettext/gettext.inc';
-require_once 'libraries/url_generating.lib.php';
 require_once 'libraries/relation.lib.php';
+require_once 'test/PMATestCase.php';
 
 /**
  * Tests behaviour of Table class
  *
  * @package PhpMyAdmin-test
  */
-class TableTest extends PHPUnit_Framework_TestCase
+class TableTest extends PMATestCase
 {
     /**
      * Configures environment
@@ -38,8 +36,6 @@ class TableTest extends PHPUnit_Framework_TestCase
          */
         $GLOBALS['server'] = 0;
         $GLOBALS['cfg']['Server']['DisableIS'] = false;
-        $GLOBALS['cfg']['ServerDefault'] = 1;
-        $GLOBALS['cfg']['ActionLinksMode'] = 'both';
         $GLOBALS['cfg']['MaxExactCount'] = 100;
         $GLOBALS['cfg']['MaxExactCountViews'] = 100;
         $GLOBALS['cfg']['Server']['pmadb'] = "pmadb";
@@ -48,12 +44,9 @@ class TableTest extends PHPUnit_Framework_TestCase
         $GLOBALS['sql_drop_table'] = true;
         $GLOBALS['cfg']['Server']['table_uiprefs'] = "pma__table_uiprefs";
 
-        $_SESSION['PMA_Theme'] = new Theme();
-        $GLOBALS['pmaThemeImage'] = 'themes/dot.gif';
-        $GLOBALS['is_ajax_request'] = false;
         $GLOBALS['cfgRelation'] = PMA_getRelationsParam();
-        $GLOBALS['pma'] = new DataBasePMAMock();
-        $GLOBALS['pma']->databases = new DataBaseMock();
+        $GLOBALS['dblist'] = new DataBasePMAMock();
+        $GLOBALS['dblist']->databases = new DataBaseMock();
 
         $sql_isView_true =  "SELECT TABLE_NAME
             FROM information_schema.VIEWS
@@ -182,6 +175,31 @@ class TableTest extends PHPUnit_Framework_TestCase
                     'ALL'
                 )
             ),
+            array(
+                'SHOW COLUMNS FROM `PMA`.`PMA_BookMark`',
+                null,
+                null,
+                null,
+                0,
+                array(
+                    array(
+                        'Field'=>'COLUMN_NAME1',
+                        'Type'=> 'INT(10)',
+                        'Null'=> 'NO',
+                        'Key'=> '',
+                        'Default'=> NULL,
+                        'Extra'=>''
+                    ),
+                    array(
+                        'Field'=>'COLUMN_NAME2',
+                        'Type'=> 'INT(10)',
+                        'Null'=> 'YES',
+                        'Key'=> '',
+                        'Default'=> NULL,
+                        'Extra'=>'STORED GENERATED'
+                    )
+                )
+            ),
         );
 
         $dbi = $this->getMockBuilder('PMA\libraries\DatabaseInterface')
@@ -259,6 +277,9 @@ class TableTest extends PHPUnit_Framework_TestCase
 
         $dbi->expects($this->any())->method('fetchRow')
             ->will($this->returnValue(false));
+
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
 
         $GLOBALS['dbi'] = $dbi;
     }
@@ -362,11 +383,11 @@ class TableTest extends PHPUnit_Framework_TestCase
      *
      * @dataProvider dataValidateName
      */
-    public function testValidateName($name, $result)
+    public function testValidateName($name, $result, $is_backquoted=false)
     {
         $this->assertEquals(
             $result,
-            Table::isValidName($name)
+            Table::isValidName($name, $is_backquoted)
         );
     }
 
@@ -382,6 +403,12 @@ class TableTest extends PHPUnit_Framework_TestCase
             array('te/st', false),
             array('te.st', false),
             array('te\\st', false),
+            array('te st', false),
+            array('  te st', true, true),
+            array('test ', false),
+            array('te.st', false),
+            array('test ', false, true),
+            array('te.st ', false, true),
         );
     }
 
@@ -497,7 +524,24 @@ class TableTest extends PHPUnit_Framework_TestCase
             $query
         );
 
+        // $type is 'TIMESTAMP(3), $default_type is CURRENT_TIMESTAMP(3)
+        $type = 'TIMESTAMP';
+        $length = '3';
+        $extra = '';
+        $default_type = 'CURRENT_TIMESTAMP';
+        $query = Table::generateFieldSpec(
+            $name, $type, $length, $attribute, $collation,
+            $null, $default_type,  $default_value, $extra, $comment,
+            $virtuality, $expression, $move_to
+        );
+        $this->assertEquals(
+            "`PMA_name` TIMESTAMP(3) PMA_attribute NULL DEFAULT CURRENT_TIMESTAMP(3) "
+            . "COMMENT 'PMA_comment' FIRST",
+            $query
+        );
+
         //$default_type is NONE
+        $type = 'BOOLEAN';
         $default_type = 'NONE';
         $extra = 'INCREMENT';
         $move_to = '-first';
@@ -596,8 +640,8 @@ class TableTest extends PHPUnit_Framework_TestCase
     public function testIsMergeCase2()
     {
         $map = array(
-            array('PMA.PMA_BookMark', null, array('ENGINE' => "MERGE")),
-            array('PMA.PMA_BookMark.ENGINE', null, "MERGE")
+            array(array('PMA', 'PMA_BookMark'), null, array('ENGINE' => "MERGE")),
+            array(array('PMA', 'PMA_BookMark', 'ENGINE'), null, "MERGE")
         );
         $GLOBALS['dbi']->expects($this->any())
             ->method('getCachedTableContent')
@@ -618,8 +662,8 @@ class TableTest extends PHPUnit_Framework_TestCase
     public function testIsMergeCase3()
     {
         $map = array(
-            array('PMA.PMA_BookMark', null, array('ENGINE' => "MRG_MYISAM")),
-            array('PMA.PMA_BookMark.ENGINE', null, "MRG_MYISAM")
+            array(array('PMA', 'PMA_BookMark'), null, array('ENGINE' => "MRG_MYISAM")),
+            array(array('PMA', 'PMA_BookMark', 'ENGINE'), null, "MRG_MYISAM")
         );
         $GLOBALS['dbi']->expects($this->any())
             ->method('getCachedTableContent')
@@ -640,8 +684,8 @@ class TableTest extends PHPUnit_Framework_TestCase
     public function testIsMergeCase4()
     {
         $map = array(
-            array('PMA.PMA_BookMark', null, array('ENGINE' => "ISDB")),
-            array('PMA.PMA_BookMark.ENGINE', null, "ISDB")
+            array(array('PMA', 'PMA_BookMark'), null, array('ENGINE' => "ISDB")),
+            array(array('PMA', 'PMA_BookMark', 'ENGINE'), null, "ISDB")
         );
         $GLOBALS['dbi']->expects($this->any())
             ->method('getCachedTableContent')
@@ -683,8 +727,8 @@ class TableTest extends PHPUnit_Framework_TestCase
             $extra, $comment, $virtuality, $expression, $move_to
         );
 
-        $expect = "`name` `new_name` VARCHAR(2) new_name CHARACTER "
-            . "SET charset1 NULL DEFAULT 'VARCHAR' "
+        $expect = "`name` `new_name` VARCHAR(2) new_name CHARACTER SET "
+            . "charset1 NULL DEFAULT 'VARCHAR' "
             . "AUTO_INCREMENT COMMENT 'PMA comment' AFTER `new_name`";
 
         $this->assertEquals(
@@ -702,7 +746,6 @@ class TableTest extends PHPUnit_Framework_TestCase
     {
         $table = 'PMA_BookMark';
         $db = 'PMA';
-        Util::cacheSet('lower_case_table_names', false);
 
         $table = new Table($table, $db);
 
@@ -733,8 +776,14 @@ class TableTest extends PHPUnit_Framework_TestCase
         $table_new = 'PMA_.BookMark';
         $result = $table->rename($table_new);
         $this->assertEquals(
-            false,
+            true,
             $result
+        );
+
+        //message
+        $this->assertEquals(
+            "Table PMA_BookMark has been renamed to PMA_.BookMark.",
+            $table->getLastMessage()
         );
 
         $table_new = 'PMA_BookMark_new';
@@ -746,7 +795,7 @@ class TableTest extends PHPUnit_Framework_TestCase
         );
         //message
         $this->assertEquals(
-            "Table PMA_BookMark has been renamed to PMA_BookMark_new.",
+            "Table PMA_.BookMark has been renamed to PMA_BookMark_new.",
             $table->getLastMessage()
         );
     }
@@ -867,6 +916,24 @@ class TableTest extends PHPUnit_Framework_TestCase
             $sql_excepted,
             $sql
         );
+
+        // Exclude db name when relations are made between table in the same db
+        $sql = $method->invokeArgs(
+            $tableObj, array(
+                $table,
+                $field,
+                'db',
+                $foreignTable,
+                $foreignField
+            )
+        );
+        $sql_excepted = 'ALTER TABLE `PMA_table` ADD  '
+            . 'FOREIGN KEY (`PMA_field1`, `PMA_field2`) REFERENCES '
+            . '`foreignTable`(`foreignField1`, `foreignField2`);';
+        $this->assertEquals(
+            $sql_excepted,
+            $sql
+        );
     }
 
     /**
@@ -931,6 +998,72 @@ class TableTest extends PHPUnit_Framework_TestCase
     }
 
     /**
+     * Test for checkIfMinRecordsExist
+     *
+     * @return void
+     */
+    public function testCheckIfMinRecordsExist()
+    {
+        $old_dbi = $GLOBALS['dbi'];
+        $dbi = $this->getMockBuilder('PMA\libraries\DatabaseInterface')
+            ->disableOriginalConstructor()
+            ->getMock();
+        $dbi->expects($this->any())
+            ->method('tryQuery')
+            ->will($this->returnValue('res'));
+        $dbi->expects($this->any())
+            ->method('numRows')
+            ->willReturnOnConsecutiveCalls(
+                0,
+                10,
+                200
+            );
+        $dbi->expects($this->any())
+            ->method('fetchResult')
+            ->willReturnOnConsecutiveCalls(
+                array('`one_pk`'),
+
+                array(), // No Uniques found
+                array('`one_ind`', '`sec_ind`'),
+
+                array(), // No Uniques found
+                array()  // No Indexed found
+            );
+
+        $GLOBALS['dbi'] = $dbi;
+
+        $table = 'PMA_BookMark';
+        $db = 'PMA';
+        $tableObj = new Table($table, $db);
+
+        // Case 1 : Check if table is non-empty
+        $return = $tableObj->checkIfMinRecordsExist();
+        $expect = true;
+        $this->assertEquals(
+            $expect,
+            $return
+        );
+
+        // Case 2 : Check if table contains at least 100
+        $return = $tableObj->checkIfMinRecordsExist(100);
+        $expect = false;
+        $this->assertEquals(
+            $expect,
+            $return
+        );
+
+        // Case 3 : Check if table contains at least 100
+        $return = $tableObj->checkIfMinRecordsExist(100);
+        $expect = true;
+        $this->assertEquals(
+            $expect,
+            $return
+        );
+
+        $GLOBALS['dbi'] = $old_dbi;
+    }
+
+    /**
      * Test for countRecords
      *
      * @return void
@@ -939,11 +1072,11 @@ class TableTest extends PHPUnit_Framework_TestCase
     {
         $map = array(
             array(
-                'PMA.PMA_BookMark',
+                array('PMA', 'PMA_BookMark'),
                 null,
                 array('Comment' => "Comment222", 'TABLE_TYPE' => "VIEW"),
             ),
-            array('PMA.PMA_BookMark.TABLE_TYPE', null, 'VIEW'),
+            array(array('PMA', 'PMA_BookMark', 'TABLE_TYPE'), null, 'VIEW'),
         );
         $GLOBALS['dbi']->expects($this->any())
             ->method('getCachedTableContent')
@@ -1031,7 +1164,8 @@ class TableTest extends PHPUnit_Framework_TestCase
             $expect,
             $return
         );
-        $sql_query = "INSERT INTO `PMA_new`.`PMA_BookMark_new` SELECT * FROM "
+        $sql_query = "INSERT INTO `PMA_new`.`PMA_BookMark_new`(`COLUMN_NAME1`)"
+            . " SELECT `COLUMN_NAME1` FROM "
             . "`PMA`.`PMA_BookMark`";
         $this->assertContains(
             $sql_query,
@@ -1054,8 +1188,9 @@ class TableTest extends PHPUnit_Framework_TestCase
             $expect,
             $return
         );
-        $sql_query = "INSERT INTO `PMA_new`.`PMA_BookMark_new` SELECT * FROM "
-            . "`PMA`.`PMA_BookMark`;";
+        $sql_query = "INSERT INTO `PMA_new`.`PMA_BookMark_new`(`COLUMN_NAME1`)"
+            . " SELECT `COLUMN_NAME1` FROM "
+            . "`PMA`.`PMA_BookMark`";
         $this->assertContains(
             $sql_query,
             $GLOBALS['sql_query']

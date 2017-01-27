@@ -28,11 +28,6 @@ class AuthenticationSignon extends AuthenticationPlugin
         unset($_SESSION['LAST_SIGNON_URL']);
         if (empty($GLOBALS['cfg']['Server']['SignonURL'])) {
             PMA_fatalError('You must set SignonURL!');
-        } elseif (!empty($_REQUEST['old_usr'])
-            && !empty($GLOBALS['cfg']['Server']['LogoutURL'])
-        ) {
-            /* Perform logout to custom URL */
-            PMA_sendHeaderLocation($GLOBALS['cfg']['Server']['LogoutURL']);
         } else {
             PMA_sendHeaderLocation($GLOBALS['cfg']['Server']['SignonURL']);
         }
@@ -47,8 +42,8 @@ class AuthenticationSignon extends AuthenticationPlugin
     /**
      * Gets advanced authentication settings
      *
-     * @global  string $PHP_AUTH_USER        the username if register_globals is on
-     * @global  string $PHP_AUTH_PW          the password if register_globals is on
+     * @global string $PHP_AUTH_USER the username
+     * @global string $PHP_AUTH_PW   the password
      *
      * @return boolean   whether we get authentication settings or not
      */
@@ -70,6 +65,9 @@ class AuthenticationSignon extends AuthenticationPlugin
         /* Session name */
         $session_name = $GLOBALS['cfg']['Server']['SignonSession'];
 
+        /* Session cookie params */
+        $session_cookie_params = (array) $GLOBALS['cfg']['Server']['SignonCookieParams'];
+
         /* Login URL */
         $signon_url = $GLOBALS['cfg']['Server']['SignonURL'];
 
@@ -81,9 +79,6 @@ class AuthenticationSignon extends AuthenticationPlugin
 
         /* No configuration updates */
         $single_signon_cfgupdate = array();
-
-        /* Are we requested to do logout? */
-        $do_logout = !empty($_REQUEST['old_usr']);
 
         /* Handle script based auth */
         if (!empty($script_name)) {
@@ -101,11 +96,29 @@ class AuthenticationSignon extends AuthenticationPlugin
             /* End current session */
             $old_session = session_name();
             $old_id = session_id();
+            $old_cookie_params = session_get_cookie_params();
             if (!defined('TESTSUITE')) {
                 session_write_close();
             }
 
+            /* Sanitize cookie params */
+            $defaultCookieParams = function($key){
+                switch ($key) {
+                    case 'lifetime': return 0;
+                    case 'path': return '/';
+                    case 'domain': return '';
+                    case 'secure': return false;
+                    case 'httponly': return false;
+                }
+                return null;
+            };
+            foreach (array('lifetime', 'path', 'domain', 'secure', 'httponly') as $key) {
+                if (!isset($session_cookie_params[$key]))
+                    $session_cookie_params[$key] = $defaultCookieParams($key);
+            }
+
             /* Load single signon session */
+            session_set_cookie_params($session_cookie_params['lifetime'], $session_cookie_params['path'], $session_cookie_params['domain'], $session_cookie_params['secure'], $session_cookie_params['httponly']);
             session_name($session_name);
             session_id($_COOKIE[$session_name]);
             if (!defined('TESTSUITE')) {
@@ -117,18 +130,10 @@ class AuthenticationSignon extends AuthenticationPlugin
 
             /* Grab credentials if they exist */
             if (isset($_SESSION['PMA_single_signon_user'])) {
-                if ($do_logout) {
-                    $PHP_AUTH_USER = '';
-                } else {
-                    $PHP_AUTH_USER = $_SESSION['PMA_single_signon_user'];
-                }
+                $PHP_AUTH_USER = $_SESSION['PMA_single_signon_user'];
             }
             if (isset($_SESSION['PMA_single_signon_password'])) {
-                if ($do_logout) {
-                    $PHP_AUTH_PW = '';
-                } else {
-                    $PHP_AUTH_PW = $_SESSION['PMA_single_signon_password'];
-                }
+                $PHP_AUTH_PW = $_SESSION['PMA_single_signon_password'];
             }
             if (isset($_SESSION['PMA_single_signon_host'])) {
                 $single_signon_host = $_SESSION['PMA_single_signon_host'];
@@ -154,6 +159,7 @@ class AuthenticationSignon extends AuthenticationPlugin
             }
 
             /* Restart phpMyAdmin session */
+            session_set_cookie_params($old_cookie_params['lifetime'], $old_cookie_params['path'], $old_cookie_params['domain'], $old_cookie_params['secure'], $old_cookie_params['httponly']);
             session_name($old_session);
             if (!empty($old_id)) {
                 session_id($old_id);
@@ -245,5 +251,15 @@ class AuthenticationSignon extends AuthenticationPlugin
             $_SESSION['PMA_single_signon_error_message'] = $this->getErrorMessage();
         }
         $this->auth();
+    }
+
+    /**
+     * Returns URL for login form.
+     *
+     * @return string
+     */
+    public function getLoginFormURL()
+    {
+        return $GLOBALS['cfg']['Server']['SignonURL'];
     }
 }

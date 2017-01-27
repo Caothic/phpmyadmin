@@ -11,12 +11,14 @@
  */
 use PMA\libraries\Linter;
 
+require_once 'test/PMATestCase.php';
+
 /**
  * Tests for PMA\libraries\Linter
  *
  * @package PhpMyAdmin-test
  */
-class LinterTest extends PHPUnit_Framework_TestCase
+class LinterTest extends PMATestCase
 {
 
     /**
@@ -70,7 +72,7 @@ class LinterTest extends PHPUnit_Framework_TestCase
     /**
      * Test for Linter::lint
      *
-     * @dataProvider testLintProvider
+     * @dataProvider lintProvider
      *
      * @param array  $expected The expected result.
      * @param string $query    The query to be analyzed.
@@ -87,7 +89,7 @@ class LinterTest extends PHPUnit_Framework_TestCase
      *
      * @return array
      */
-    public static function testLintProvider()
+    public static function lintProvider()
     {
         return array(
             array(

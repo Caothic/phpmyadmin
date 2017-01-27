@@ -11,12 +11,14 @@
  */
 use PMA\libraries\VersionInformation;
 
+require_once 'test/PMATestCase.php';
+
 /**
  * Tests for methods in PMA\libraries\VersionInformation class
  *
  * @package PhpMyAdmin-test
  */
-class VersionInformationTest extends PHPUnit_Framework_TestCase
+class VersionInformationTest extends PMATestCase
 {
     private $_releases;
 
@@ -58,6 +60,7 @@ class VersionInformationTest extends PHPUnit_Framework_TestCase
      * @return void
      *
      * @group large
+     * @group network
      */
     public function testGetLatestVersion()
     {

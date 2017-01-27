@@ -9,13 +9,11 @@
 namespace PMA\libraries\plugins\transformations\abs;
 
 use PMA\libraries\plugins\TransformationsPlugin;
+use PMA\libraries\Sanitize;
 
 if (!defined('PHPMYADMIN')) {
     exit;
 }
-
-/* For PMA_Transformation_globalHtmlReplace */
-require_once 'libraries/transformations.lib.php';
 
 /**
  * Provides common methods for all of the image link transformations plugins.
@@ -33,7 +31,7 @@ abstract class TextImageLinkTransformationsPlugin extends TransformationsPlugin
     {
         return __(
             'Displays an image and a link; the column contains the filename. The'
-            . ' first option is a URL prefix like "http://www.example.com/". The'
+            . ' first option is a URL prefix like "https://www.example.com/". The'
             . ' second and third options are the width and the height in pixels.'
         );
     }
@@ -49,21 +47,16 @@ abstract class TextImageLinkTransformationsPlugin extends TransformationsPlugin
      */
     public function applyTransformation($buffer, $options = array(), $meta = '')
     {
-        $transform_options = array(
-            'string' => '<a href="' . (isset($options[0]) ? $options[0] : '')
-                . $buffer . '" target="_blank"><img src="'
-                . (isset($options[0]) ? $options[0] : '') . $buffer
-                . '" border="0" width="' . (isset($options[1]) ? $options[1] : 100)
-                . '" height="' . (isset($options[2]) ? $options[2] : 50) . '" />'
-                . $buffer . '</a>',
-        );
-
-        $buffer = PMA_Transformation_globalHtmlReplace(
-            $buffer,
-            $transform_options
-        );
-
-        return $buffer;
+        $url = (isset($options[0]) ? $options[0] : '') . $buffer;
+        /* Do not allow javascript links */
+        if (! Sanitize::checkLink($url, true, true)) {
+            return htmlspecialchars($url);
+        }
+        return '<a href="' . htmlspecialchars($url)
+            . '" rel="noopener noreferrer" target="_blank"><img src="' . htmlspecialchars($url)
+            . '" border="0" width="' . (isset($options[1]) ? intval($options[1]) : 100)
+            . '" height="' . (isset($options[2]) ? intval($options[2]) : 50) . '" />'
+            . htmlspecialchars($buffer) . '</a>';
     }
 
 

@@ -10,16 +10,14 @@ use PMA\libraries\navigation\NodeFactory;
 use PMA\libraries\Theme;
 
 require_once 'libraries/navigation/NodeFactory.php';
-
-
-require_once 'libraries/php-gettext/gettext.inc';
+require_once 'test/PMATestCase.php';
 
 /**
  * Tests for PMA\libraries\navigation\nodes\NodeTableContainer class
  *
  * @package PhpMyAdmin-test
  */
-class NodeTableContainerTest extends PHPUnit_Framework_TestCase
+class NodeTableContainerTest extends PMATestCase
 {
     /**
      * SetUp for test cases
@@ -33,7 +31,6 @@ class NodeTableContainerTest extends PHPUnit_Framework_TestCase
         $GLOBALS['cfg']['NavigationTreeDbSeparator'] = '_';
         $GLOBALS['cfg']['NavigationTreeTableSeparator'] = '__';
         $GLOBALS['cfg']['NavigationTreeTableLevel'] = 1;
-        $_SESSION['PMA_Theme'] = Theme::load('./themes/pmahomme');
     }
 
 

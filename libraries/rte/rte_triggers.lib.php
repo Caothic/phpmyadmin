@@ -6,6 +6,7 @@
  * @package PhpMyAdmin
  */
 use PMA\libraries\Response;
+use PMA\libraries\URL;
 
 if (! defined('PHPMYADMIN')) {
     exit;
@@ -147,16 +148,16 @@ function PMA_TRI_handleEditor()
                 )
                 . '</b>'
             );
-            $message->addString('<ul>');
+            $message->addHtml('<ul>');
             foreach ($errors as $string) {
-                $message->addString('<li>' . $string . '</li>');
+                $message->addHtml('<li>' . $string . '</li>');
             }
-            $message->addString('</ul>');
+            $message->addHtml('</ul>');
         }
 
         $output = PMA\libraries\Util::getMessage($message, $sql_query);
-        if ($GLOBALS['is_ajax_request']) {
-            $response = PMA\libraries\Response::getInstance();
+        $response = Response::getInstance();
+        if ($response->isAjax()) {
             if ($message->isSuccess()) {
                 $items = $GLOBALS['dbi']->getTriggers($db, $table, '');
                 $trigger = false;
@@ -174,7 +175,7 @@ function PMA_TRI_handleEditor()
                     $response->addJSON(
                         'name',
                         htmlspecialchars(
-                            /*overload*/mb_strtoupper(
+                            mb_strtoupper(
                                 $_REQUEST['item_name']
                             )
                         )
@@ -292,7 +293,8 @@ function PMA_TRI_getEditorForm($mode, $item)
 {
     global $db, $table, $event_manipulations, $action_timings;
 
-    $modeToUpper = /*overload*/mb_strtoupper($mode);
+    $modeToUpper = mb_strtoupper($mode);
+    $response = Response::getInstance();
 
     // Escape special characters
     $need_escape = array(
@@ -310,7 +312,7 @@ function PMA_TRI_getEditorForm($mode, $item)
                        . "type='hidden' value='{$item['item_original_name']}'/>\n";
     }
     $query  = "SELECT `TABLE_NAME` FROM `INFORMATION_SCHEMA`.`TABLES` ";
-    $query .= "WHERE `TABLE_SCHEMA`='" . PMA\libraries\Util::sqlAddSlashes($db) . "' ";
+    $query .= "WHERE `TABLE_SCHEMA`='" . $GLOBALS['dbi']->escapeString($db) . "' ";
     $query .= "AND `TABLE_TYPE`='BASE TABLE'";
     $tables = $GLOBALS['dbi']->fetchResult($query);
 
@@ -320,7 +322,7 @@ function PMA_TRI_getEditorForm($mode, $item)
     $retval .= "<form class='rte_form' action='db_triggers.php' method='post'>\n";
     $retval .= "<input name='{$mode}_item' type='hidden' value='1' />\n";
     $retval .= $original_data;
-    $retval .= PMA_URL_getHiddenInputs($db, $table) . "\n";
+    $retval .= URL::getHiddenInputs($db, $table) . "\n";
     $retval .= "<fieldset>\n";
     $retval .= "<legend>" . __('Details') . "</legend>\n";
     $retval .= "<table class='rte_table' style='width: 100%'>\n";
@@ -388,7 +390,7 @@ function PMA_TRI_getEditorForm($mode, $item)
     $retval .= "</tr>\n";
     $retval .= "</table>\n";
     $retval .= "</fieldset>\n";
-    if ($GLOBALS['is_ajax_request']) {
+    if ($response->isAjax()) {
         $retval .= "<input type='hidden' name='editor_process_{$mode}'\n";
         $retval .= "       value='true' />\n";
         $retval .= "<input type='hidden' name='ajax_request' value='true' />\n";
@@ -415,7 +417,7 @@ function PMA_TRI_getQueryFromRequest()
 
     $query = 'CREATE ';
     if (! empty($_REQUEST['item_definer'])) {
-        if (/*overload*/mb_strpos($_REQUEST['item_definer'], '@') !== false
+        if (mb_strpos($_REQUEST['item_definer'], '@') !== false
         ) {
             $arr = explode('@', $_REQUEST['item_definer']);
             $query .= 'DEFINER=' . PMA\libraries\Util::backquote($arr[0]);

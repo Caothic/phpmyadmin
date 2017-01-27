@@ -12,10 +12,6 @@ use PMA;
 use PMA\libraries\plugins\TransformationsPlugin;
 use PMA\libraries\Response;
 
-if (!defined('PHPMYADMIN')) {
-    exit;
-}
-
 /**
  * Handles the XML transformation for text plain
  *
@@ -30,7 +26,7 @@ class Text_Plain_Xml extends TransformationsPlugin
     public function __construct()
     {
         if (!empty($GLOBALS['cfg']['CodemirrorEnable'])) {
-            $response = PMA\libraries\Response::getInstance();
+            $response = Response::getInstance();
             $scripts = $response->getHeader()
                 ->getScripts();
             $scripts->addFile('codemirror/lib/codemirror.js');

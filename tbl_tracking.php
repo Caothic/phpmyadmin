@@ -8,13 +8,14 @@
 
 // Run common work
 use PMA\libraries\Tracker;
+use PMA\libraries\Response;
 
 require_once './libraries/common.inc.php';
 
 require_once './libraries/tracking.lib.php';
 
 //Get some js files needed for Ajax requests
-$response = PMA\libraries\Response::getInstance();
+$response = Response::getInstance();
 $header   = $response->getHeader();
 $scripts  = $header->getScripts();
 $scripts->addFile('jquery/jquery.tablesorter.js');
@@ -36,7 +37,7 @@ if (Tracker::isActive()
             htmlspecialchars($GLOBALS["db"] . '.' . $GLOBALS["table"])
         )
     );
-    PMA\libraries\Response::getInstance()->addHTML($msg->getDisplay());
+    $response->addHTML($msg->getDisplay());
 }
 
 $url_query .= '&amp;goto=tbl_tracking.php&amp;back=tbl_tracking.php';
@@ -124,14 +125,14 @@ if (isset($_REQUEST['submit_create_version'])) {
 if (isset($_REQUEST['toggle_activation'])
     && $_REQUEST['toggle_activation'] == 'deactivate_now'
 ) {
-    $html .= PMA_deactivateTracking();
+    $html .= PMA_changeTracking('deactivate');
 }
 
 // Activate tracking
 if (isset($_REQUEST['toggle_activation'])
     && $_REQUEST['toggle_activation'] == 'activate_now'
 ) {
-    $html .= PMA_activateTracking();
+    $html .= PMA_changeTracking('activate');
 }
 
 // Export as SQL execution
@@ -206,5 +207,4 @@ $html .= PMA_getHtmlForDataDefinitionAndManipulationStatements(
 
 $html .= '<br class="clearfloat"/>';
 
-$response = PMA\libraries\Response::getInstance();
 $response->addHTML($html);

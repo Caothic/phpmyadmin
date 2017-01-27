@@ -8,6 +8,7 @@
 namespace PMA\libraries\plugins\schema\dia;
 
 use PMA;
+use PMA\libraries\Response;
 use XMLWriter;
 
 /**
@@ -16,7 +17,7 @@ use XMLWriter;
  *
  * @package PhpMyAdmin
  * @access  public
- * @see     http://php.net/manual/en/book.xmlwriter.php
+ * @see     https://secure.php.net/manual/en/book.xmlwriter.php
  */
 class Dia extends XMLWriter
 {
@@ -176,13 +177,11 @@ class Dia extends XMLWriter
             ob_end_clean();
         }
         $output = $this->flush();
-        PMA\libraries\Response::getInstance()
-            ->disable();
+        Response::getInstance()->disable();
         PMA_downloadHeader(
             $fileName,
             'application/x-dia-diagram',
-            /*overload*/
-            mb_strlen($output)
+            strlen($output)
         );
         print $output;
     }

@@ -9,9 +9,7 @@
 /*
  * Include to test.
  */
-require_once 'libraries/php-gettext/gettext.inc';
-require_once 'libraries/url_generating.lib.php';
-require_once 'libraries/core.lib.php';
+require_once 'test/PMATestCase.php';
 
 use PMA\libraries\Advisor;
 use PMA\libraries\Theme;
@@ -21,7 +19,7 @@ use PMA\libraries\Theme;
  *
  * @package PhpMyAdmin-test
  */
-class AdvisorTest extends PHPUnit_Framework_TestCase
+class AdvisorTest extends PMATestCase
 {
 
     /**
@@ -32,9 +30,7 @@ class AdvisorTest extends PHPUnit_Framework_TestCase
      */
     public function setup()
     {
-        $_SESSION['PMA_Theme'] = Theme::load('./themes/pmahomme');
-        $GLOBALS['server'] = 0;
-        $GLOBALS['cfg']['ServerDefault'] = '';
+        $GLOBALS['server'] = 1;
     }
 
     /**
@@ -175,7 +171,7 @@ class AdvisorTest extends PHPUnit_Framework_TestCase
                     'name' => 'Variable',
                     'issue' => 'issue',
                     'recommendation' => 'Recommend <a href="server_variables.php?' .
-                    'lang=en&amp;token=token&filter=status_var">status_var</a>'
+                    'lang=en&filter=status_var">status_var</a>'
                 ),
                 null,
             ),
@@ -260,14 +256,14 @@ class AdvisorTest extends PHPUnit_Framework_TestCase
                     'justification' => 'Version string (%s) | value',
                     'name' => 'Distribution',
                     'issue' => 'official MySQL binaries.',
-                    'recommendation' => 'See <a href="http://phpma.org/">web</a>',
+                    'recommendation' => 'See <a href="https://example.com/">web</a>',
                 ),
                 array(
                     'justification' => 'Version string (0)',
                     'name' => 'Distribution',
                     'issue' => 'official MySQL binaries.',
-                    'recommendation' => 'See <a href="./url.php?url=http%3A%2F%2F' .
-                        'phpma.org%2F" target="_blank">web</a>',
+                    'recommendation' => 'See <a href="./url.php?url=https%3A%2F%2F' .
+                        'example.com%2F" target="_blank" rel="noopener noreferrer">web</a>',
                     'id' => 'Distribution'
                 ),
                 null,

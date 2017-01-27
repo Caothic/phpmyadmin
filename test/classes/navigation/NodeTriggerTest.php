@@ -10,15 +10,14 @@ use PMA\libraries\navigation\NodeFactory;
 use PMA\libraries\Theme;
 
 require_once 'libraries/navigation/NodeFactory.php';
-
-
+require_once 'test/PMATestCase.php';
 
 /**
  * Tests for PMA\libraries\navigation\nodes\NodeTrigger class
  *
  * @package PhpMyAdmin-test
  */
-class NodeTriggerTest extends PHPUnit_Framework_TestCase
+class NodeTriggerTest extends PMATestCase
 {
     /**
      * SetUp for test cases
@@ -28,7 +27,6 @@ class NodeTriggerTest extends PHPUnit_Framework_TestCase
     public function setup()
     {
         $GLOBALS['server'] = 0;
-        $_SESSION['PMA_Theme'] = Theme::load('./themes/pmahomme');
     }
 
 

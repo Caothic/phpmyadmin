@@ -5,7 +5,13 @@
  *
  * @package PhpMyAdmin
  */
+use PMA\libraries\Response;
 use PMA\libraries\RecentFavoriteTable;
+use PMA\libraries\URL;
+use PMA\libraries\Sanitize;
+use PMA\libraries\Charsets;
+use PMA\libraries\ThemeManager;
+use PMA\libraries\LanguageManager;
 
 /**
  * Gets some core libraries and displays a top message if required
@@ -74,11 +80,11 @@ if (! empty($_REQUEST['db'])) {
     exit;
 }
 
+$response = Response::getInstance();
 /**
  * Check if it is an ajax request to reload the recent tables list.
  */
-if ($GLOBALS['is_ajax_request'] && ! empty($_REQUEST['recent_table'])) {
-    $response = PMA\libraries\Response::getInstance();
+if ($response->isAjax() && ! empty($_REQUEST['recent_table'])) {
     $response->addJSON(
         'list',
         RecentFavoriteTable::getInstance('recent')->getHtmlList()
@@ -87,7 +93,7 @@ if ($GLOBALS['is_ajax_request'] && ! empty($_REQUEST['recent_table'])) {
 }
 
 if ($GLOBALS['PMA_Config']->isGitRevision()) {
-    if (isset($_REQUEST['git_revision']) && $GLOBALS['is_ajax_request'] == true) {
+    if (isset($_REQUEST['git_revision']) && $response->isAjax()) {
         PMA_printGitRevision();
         exit;
     }
@@ -105,7 +111,7 @@ if (! empty($message)) {
     unset($message);
 }
 
-$common_url_query =  PMA_URL_getCommon();
+$common_url_query =  URL::getCommon();
 $mysql_cur_user_and_host = '';
 
 // when $server > 0, a server has been chosen so we can display
@@ -136,7 +142,7 @@ if ($server > 0) {
                 : $GLOBALS['cfg']['Server']['host']);
 }
 
-echo '<div id="maincontainer">' . "\n";
+echo '<div id="maincontainer">' , "\n";
 // Anchor for favorite tables synchronization.
 echo RecentFavoriteTable::getInstance('favorite')->getHtmlSyncFavoriteTables();
 echo '<div id="main_pane_left">';
@@ -144,7 +150,7 @@ if ($server > 0 || count($cfg['Servers']) > 1
 ) {
     if ($cfg['DBG']['demo']) {
         echo '<div class="group">';
-        echo '<h2>' . __('phpMyAdmin Demo Server') . '</h2>';
+        echo '<h2>' , __('phpMyAdmin Demo Server') , '</h2>';
         echo '<p style="margin: 0.5em 1em 0.5em 1em">';
         printf(
             __(
@@ -152,13 +158,13 @@ if ($server > 0 || count($cfg['Servers']) > 1
                 . 'please do not change root, debian-sys-maint and pma users. '
                 . 'More information is available at %s.'
             ),
-            '<a href="http://demo.phpmyadmin.net/">demo.phpmyadmin.net</a>'
+            '<a href="url.php?url=https://demo.phpmyadmin.net/" target="_blank" rel="noopener noreferrer">demo.phpmyadmin.net</a>'
         );
         echo '</p>';
         echo '</div>';
     }
     echo '<div class="group">';
-    echo '<h2>' . __('General settings') . '</h2>';
+    echo '<h2>' , __('General settings') , '</h2>';
     echo '<ul>';
 
     /**
@@ -171,8 +177,8 @@ if ($server > 0 || count($cfg['Servers']) > 1
     ) {
         echo '<li id="li_select_server" class="no_bullets" >';
         include_once 'libraries/select_server.lib.php';
-        echo PMA\libraries\Util::getImage('s_host.png') . " "
-            . PMA_selectServer(true, true);
+        echo PMA\libraries\Util::getImage('s_host.png') , " "
+            , PMA_selectServer(true, true);
         echo '</li>';
     }
 
@@ -201,8 +207,8 @@ if ($server > 0 || count($cfg['Servers']) > 1
             }
         } // end if
         echo '    <li id="li_select_mysql_collation" class="no_bullets" >';
-        echo '        <form method="post" action="index.php">' . "\n"
-           . PMA_URL_getHiddenInputs(null, null, 4, 'collation_connection')
+        echo '        <form method="post" action="index.php">' , "\n"
+           . URL::getHiddenInputs(null, null, 4, 'collation_connection')
            . '            <label for="select_collation_connection">' . "\n"
            . '                ' . PMA\libraries\Util::getImage('s_asci.png')
             . "&nbsp;" . __('Server connection collation') . "\n"
@@ -211,8 +217,7 @@ if ($server > 0 || count($cfg['Servers']) > 1
            . ': ' .  "\n"
            . '            </label>' . "\n"
 
-           . PMA_generateCharsetDropdownBox(
-               PMA_CSDROPDOWN_COLLATION,
+           . Charsets::getCollationDropdownBox(
                'collation_connection',
                'select_collation_connection',
                $collation_connection,
@@ -227,15 +232,15 @@ if ($server > 0 || count($cfg['Servers']) > 1
 }
 
 echo '<div class="group">';
-echo '<h2>' . __('Appearance settings') . '</h2>';
+echo '<h2>' , __('Appearance settings') , '</h2>';
 echo '  <ul>';
 
 // Displays language selection combo
-if (empty($cfg['Lang']) && count($GLOBALS['available_languages']) > 1) {
+if (empty($cfg['Lang'])) {
     echo '<li id="li_select_lang" class="no_bullets">';
-    include_once 'libraries/display_select_lang.lib.php';
-    echo PMA\libraries\Util::getImage('s_lang.png') . " "
-        . PMA_getLanguageSelectorHtml();
+
+    echo PMA\libraries\Util::getImage('s_lang.png') , " "
+        , LanguageManager::getInstance()->getSelectorDisplay();
     echo '</li>';
 }
 
@@ -243,8 +248,8 @@ if (empty($cfg['Lang']) && count($GLOBALS['available_languages']) > 1) {
 
 if ($GLOBALS['cfg']['ThemeManager']) {
     echo '<li id="li_select_theme" class="no_bullets">';
-    echo PMA\libraries\Util::getImage('s_theme.png') . " "
-            .  $_SESSION['PMA_Theme_Manager']->getHtmlSelectBox();
+    echo PMA\libraries\Util::getImage('s_theme.png') , " "
+            ,  ThemeManager::getInstance()->getHtmlSelectBox();
     echo '</li>';
 }
 echo '<li id="li_select_fontsize">';
@@ -281,8 +286,8 @@ echo '<div id="main_pane_right">';
 if ($server > 0 && $GLOBALS['cfg']['ShowServerInfo']) {
 
     echo '<div class="group">';
-    echo '<h2>' . __('Database server') . '</h2>';
-    echo '<ul>' . "\n";
+    echo '<h2>' , __('Database server') , '</h2>';
+    echo '<ul>' , "\n";
     PMA_printListItem(
         __('Server:') . ' ' . $server_info,
         'li_server_info'
@@ -307,11 +312,12 @@ if ($server > 0 && $GLOBALS['cfg']['ShowServerInfo']) {
     );
 
     echo '    <li id="li_select_mysql_charset">';
-    echo '        ' . __('Server charset:') . ' '
+    echo '        ' , __('Server charset:') , ' '
        . '        <span lang="en" dir="ltr">';
-    echo '           ' . $mysql_charsets_descriptions[$mysql_charset_map['utf-8']];
-    echo '           (' . $mysql_charset_map['utf-8'] . ')'
-       . '        </span>'
+    $unicode = Charsets::$mysql_charset_map['utf-8'];
+    $charsets = Charsets::getMySQLCharsetsDescriptions();
+    echo '           ' , $charsets[$unicode], ' (' . $unicode, ')';
+    echo '        </span>'
        . '    </li>'
        . '  </ul>'
        . ' </div>';
@@ -319,7 +325,7 @@ if ($server > 0 && $GLOBALS['cfg']['ShowServerInfo']) {
 
 if ($GLOBALS['cfg']['ShowServerInfo'] || $GLOBALS['cfg']['ShowPhpInfo']) {
     echo '<div class="group">';
-    echo '<h2>' . __('Web server') . '</h2>';
+    echo '<h2>' , __('Web server') , '</h2>';
     echo '<ul>';
     if ($GLOBALS['cfg']['ShowServerInfo']) {
         PMA_printListItem($_SERVER['SERVER_SOFTWARE'], 'li_web_server_software');
@@ -335,13 +341,13 @@ if ($GLOBALS['cfg']['ShowServerInfo'] || $GLOBALS['cfg']['ShowPhpInfo']) {
             );
 
             $php_ext_string = __('PHP extension:') . ' ';
-            if (PMA\libraries\DatabaseInterface::checkDbExtension('mysqli')) {
-                $extension = 'mysqli';
-            } else {
-                $extension = 'mysql';
+
+            $extensions = PMA\libraries\Util::listPHPExtensions();
+
+            foreach ($extensions as $extension) {
+                $php_ext_string  .= '  ' . $extension
+                    . PMA\libraries\Util::showPHPDocu('book.' . $extension . '.php');
             }
-            $php_ext_string  .= $extension . ' '
-                . PMA\libraries\Util::showPHPDocu('book.' . $extension . '.php');
 
             PMA_printListItem(
                 $php_ext_string,
@@ -374,11 +380,7 @@ echo '<div class="group pmagroup">';
 echo '<h2>phpMyAdmin</h2>';
 echo '<ul>';
 $class = null;
-// We rely on CSP to allow access to http://www.phpmyadmin.net, but IE lacks
-// support here and does not allow request to http once using https.
-if ($GLOBALS['cfg']['VersionCheck']
-    && (! $GLOBALS['PMA_Config']->get('is_https') || PMA_USR_BROWSER_AGENT != 'IE')
-) {
+if ($GLOBALS['cfg']['VersionCheck']) {
     $class = 'jsversioncheck';
 }
 PMA_printListItem(
@@ -397,19 +399,12 @@ PMA_printListItem(
     null,
     '_blank'
 );
-PMA_printListItem(
-    __('Wiki'),
-    'li_pma_wiki',
-    PMA_linkURL('http://wiki.phpmyadmin.net/'),
-    null,
-    '_blank'
-);
 
 // does not work if no target specified, don't know why
 PMA_printListItem(
     __('Official Homepage'),
     'li_pma_homepage',
-    PMA_linkURL('http://www.phpMyAdmin.net/'),
+    PMA_linkURL('https://www.phpmyadmin.net/'),
     null,
     '_blank'
 );
@@ -430,14 +425,14 @@ PMA_printListItem(
 PMA_printListItem(
     __('List of changes'),
     'li_pma_changes',
-    'changelog.php' . PMA_URL_getCommon(),
+    'changelog.php' . URL::getCommon(),
     null,
     '_blank'
 );
 PMA_printListItem(
     __('License'),
     'li_pma_license',
-    'license.php' . PMA_URL_getCommon(),
+    'license.php' . URL::getCommon(),
     null,
     '_blank'
 );
@@ -447,40 +442,6 @@ echo ' </div>';
 echo '</div>';
 
 echo '</div>';
-
-/**
- * Warning if using the default MySQL privileged account
- */
-if ($server != 0
-    && $cfg['Server']['user'] == 'root'
-    && $cfg['Server']['password'] == ''
-) {
-    trigger_error(
-        __(
-            'You are connected as \'root\' with no password, which'
-            . ' corresponds to the default MySQL privileged account.'
-            . ' Your MySQL server is running with this default, is open to'
-            . ' intrusion, and you really should fix this security hole by'
-            . ' setting a password for user \'root\'.'
-        ),
-        E_USER_WARNING
-    );
-}
-
-/**
- * As we try to handle charsets by ourself, mbstring overloads just
- * break it, see bug 1063821.
- */
-if (@extension_loaded('mbstring') && @ini_get('mbstring.func_overload') > 1) {
-    trigger_error(
-        __(
-            'You have enabled mbstring.func_overload in your PHP '
-            . 'configuration. This option is incompatible with phpMyAdmin '
-            . 'and might cause some data to be corrupted!'
-        ),
-        E_USER_WARNING
-    );
-}
 
 /**
  * mbstring is used for handling multibytes inside parser, so it is good
@@ -498,6 +459,19 @@ if (! @extension_loaded('mbstring')) {
     );
 }
 
+/**
+ * Missing functionality
+ */
+if (! extension_loaded('curl') && ! ini_get('allow_url_fopen')) {
+    trigger_error(
+        __(
+            'The curl extension was not found and allow_url_fopen is '
+            . 'disabled. Due to this some features such as error reporting '
+            . 'or version check are disabled.'
+        )
+    );
+}
+
 if ($cfg['LoginCookieValidityDisableWarning'] == false) {
     /**
      * Check whether session.gc_maxlifetime limits session validity.
@@ -506,7 +480,7 @@ if ($cfg['LoginCookieValidityDisableWarning'] == false) {
     if ($gc_time < $GLOBALS['cfg']['LoginCookieValidity'] ) {
         trigger_error(
             __(
-                'Your PHP parameter [a@http://php.net/manual/en/session.' .
+                'Your PHP parameter [a@https://secure.php.net/manual/en/session.' .
                 'configuration.php#ini.session.gc-maxlifetime@_blank]session.' .
                 'gc_maxlifetime[/a] is lower than cookie validity configured ' .
                 'in phpMyAdmin, because of this, your login might expire sooner ' .
@@ -536,22 +510,29 @@ if ($GLOBALS['cfg']['LoginCookieStore'] != 0
 /**
  * Check if user does not have defined blowfish secret and it is being used.
  */
-if (! empty($_SESSION['encryption_key'])
-    && empty($GLOBALS['cfg']['blowfish_secret'])
-) {
-    trigger_error(
-        __(
-            'The configuration file now needs a secret passphrase (blowfish_secret).'
-        ),
-        E_USER_WARNING
-    );
+if (! empty($_SESSION['encryption_key'])) {
+    if (empty($GLOBALS['cfg']['blowfish_secret'])) {
+        trigger_error(
+            __(
+                'The configuration file now needs a secret passphrase (blowfish_secret).'
+            ),
+            E_USER_WARNING
+        );
+    } elseif (strlen($GLOBALS['cfg']['blowfish_secret']) < 32) {
+        trigger_error(
+            __(
+                'The secret passphrase in configuration (blowfish_secret) is too short.'
+            ),
+            E_USER_WARNING
+        );
+    }
 }
 
 /**
  * Check for existence of config directory which should not exist in
  * production environment.
  */
-if (file_exists('config')) {
+if (@file_exists('config')) {
     trigger_error(
         __(
             'Directory [code]config[/code], which is used by the setup script, ' .
@@ -575,19 +556,15 @@ if ($server > 0) {
             . '%sFind out why%s. '
         );
         if ($cfg['ZeroConf'] == true) {
-            $msg_text .= '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' .
+            $msg_text .= '<br>' .
                 __(
                     'Or alternately go to \'Operations\' tab of any database '
                     . 'to set it up there.'
                 );
         }
         $msg = PMA\libraries\Message::notice($msg_text);
-        $msg->addParam(
-            '<a href="' . $cfg['PmaAbsoluteUri'] . 'chk_rel.php'
-            . $common_url_query . '">',
-            false
-        );
-        $msg->addParam('</a>', false);
+        $msg->addParamHtml('<a href="./chk_rel.php' . $common_url_query . '">');
+        $msg->addParamHtml('</a>');
         /* Show error if user has configured something, notice elsewhere */
         if (!empty($cfg['Servers'][$server]['pmadb'])) {
             $msg->isError(true);
@@ -608,19 +585,16 @@ if ($server > 0) {
 if (isset($GLOBALS['dbi'])
     && $cfg['ServerLibraryDifference_DisableWarning'] == false
 ) {
-    /** @var String $pmaString */
-    $pmaString = $GLOBALS['PMA_String'];
-
     $_client_info = $GLOBALS['dbi']->getClientInfo();
     if ($server > 0
-        && /*overload*/mb_strpos($_client_info, 'mysqlnd') === false
-        && /*overload*/mb_strpos(PMA_MYSQL_STR_VERSION, 'MariaDB') === false
+        && mb_strpos($_client_info, 'mysqlnd') === false
+        && mb_strpos(PMA_MYSQL_STR_VERSION, 'MariaDB') === false
         && substr(PMA_MYSQL_CLIENT_API, 0, 3) != substr(
             PMA_MYSQL_INT_VERSION, 0, 3
         )
     ) {
         trigger_error(
-            PMA_sanitize(
+            Sanitize::sanitize(
                 sprintf(
                     __(
                         'Your PHP MySQL library version %s differs from your ' .
@@ -666,7 +640,7 @@ if ($cfg['SuhosinDisableWarning'] == false
  *
  * The data file is created while creating release by ./scripts/remove-incomplete-mo
  */
-if (file_exists('libraries/language_stats.inc.php')) {
+if (@file_exists('libraries/language_stats.inc.php')) {
     include 'libraries/language_stats.inc.php';
     /*
      * This message is intentionally not translated, because we're

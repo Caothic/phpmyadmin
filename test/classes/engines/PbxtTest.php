@@ -12,16 +12,15 @@
 
 use PMA\libraries\engines\Pbxt;
 
-require_once 'libraries/php-gettext/gettext.inc';
-require_once 'libraries/core.lib.php';
 require_once 'libraries/database_interface.inc.php';
+require_once 'test/PMATestCase.php';
 
 /**
  * Tests for PMA\libraries\engines\Pbxt;
  *
  * @package PhpMyAdmin-test
  */
-class PbxtTest extends PHPUnit_Framework_TestCase
+class PbxtTest extends PMATestCase
 {
     /**
      * @access protected
@@ -37,7 +36,6 @@ class PbxtTest extends PHPUnit_Framework_TestCase
      */
     protected function setUp()
     {
-        $GLOBALS['cfg']['DBG']['sql'] = false;
         $GLOBALS['server'] = 0;
         $this->object = new Pbxt('pbxt');
     }
@@ -253,17 +251,11 @@ class PbxtTest extends PHPUnit_Framework_TestCase
                     'Documentation and further information about PBXT'
                     . ' can be found on the %sPrimeBase XT Home Page%s.'
                 ),
-                '<a href="' . PMA_linkURL('http://www.primebase.com/xt/')
-                . '" target="_blank">',
+                '<a href="' . PMA_linkURL('https://mariadb.com/kb/en/mariadb/about-pbxt/')
+                . '" rel="noopener noreferrer" target="_blank">',
                 '</a>'
             )
             . '</p>' . "\n"
-            . '<h3>' . __('Related Links') . '</h3>' . "\n"
-            . '<ul>' . "\n"
-            . '<li><a href="' . PMA_linkURL('http://pbxt.blogspot.com/')
-            . '" target="_blank">'
-            . __('The PrimeBase XT Blog by Paul McCullagh')
-            . '</a></li>' . "\n" . '</ul>' . "\n"
         );
 
         $this->assertEquals(

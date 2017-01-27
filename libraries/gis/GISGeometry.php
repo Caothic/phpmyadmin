@@ -10,10 +10,6 @@ namespace PMA\libraries\gis;
 
 use \TCPDF;
 
-if (!defined('PHPMYADMIN')) {
-    exit;
-}
-
 /**
  * Base class for all GIS data type classes.
  *
@@ -133,11 +129,11 @@ abstract class GISGeometry
         . 'bound.extend(new OpenLayers.LonLat('
         . $scale_data['minX'] . ', ' . $scale_data['minY']
         . ').transform(new OpenLayers.Projection("EPSG:'
-        . $srid . '"), map.getProjectionObject())); '
+        . intval($srid) . '"), map.getProjectionObject())); '
         . 'bound.extend(new OpenLayers.LonLat('
         . $scale_data['maxX'] . ', ' . $scale_data['maxY']
         . ').transform(new OpenLayers.Projection("EPSG:'
-        . $srid . '"), map.getProjectionObject()));';
+        . intval($srid) . '"), map.getProjectionObject()));';
     }
 
     /**
@@ -195,9 +191,9 @@ abstract class GISGeometry
         $wkt = '';
 
         if (preg_match("/^'" . $geom_types . "\(.*\)',[0-9]*$/i", $value)) {
-            $last_comma = /*overload*/mb_strripos($value, ",");
-            $srid = trim(/*overload*/mb_substr($value, $last_comma + 1));
-            $wkt = trim(/*overload*/mb_substr($value, 1, $last_comma - 2));
+            $last_comma = mb_strripos($value, ",");
+            $srid = trim(mb_substr($value, $last_comma + 1));
+            $wkt = trim(mb_substr($value, 1, $last_comma - 2));
         } elseif (preg_match("/^" . $geom_types . "\(.*\)$/i", $value)) {
             $wkt = $value;
         }
@@ -226,7 +222,7 @@ abstract class GISGeometry
             // Extract coordinates of the point
             $cordinates = explode(" ", $point);
 
-            if (isset($cordinates[0]) && trim($cordinates[0]) != ''
+            if (!empty($cordinates[0]) && trim($cordinates[0]) != ''
                 && isset($cordinates[1])
                 && trim($cordinates[1]) != ''
             ) {
@@ -235,8 +231,8 @@ abstract class GISGeometry
                     $y = $scale_data['height']
                         - ($cordinates[1] - $scale_data['y']) * $scale_data['scale'];
                 } else {
-                    $x = trim($cordinates[0]);
-                    $y = trim($cordinates[1]);
+                    $x = floatval(trim($cordinates[0]));
+                    $y = floatval(trim($cordinates[1]));
                 }
             } else {
                 $x = '';
@@ -272,10 +268,10 @@ abstract class GISGeometry
         }
 
         $ol_array
-            = /*overload*/mb_substr(
+            = mb_substr(
                 $ol_array,
                 0,
-                /*overload*/mb_strlen($ol_array) - 2
+                mb_strlen($ol_array) - 2
             );
         $ol_array .= ')';
 
@@ -327,10 +323,10 @@ abstract class GISGeometry
         }
 
         $ol_array
-            = /*overload*/mb_substr(
+            = mb_substr(
                 $ol_array,
                 0,
-                /*overload*/mb_strlen($ol_array) - 2
+                mb_strlen($ol_array) - 2
             );
         $ol_array .= ')';
 
@@ -375,10 +371,10 @@ abstract class GISGeometry
         }
 
         $ol_array
-            = /*overload*/mb_substr(
+            = mb_substr(
                 $ol_array,
                 0,
-                /*overload*/mb_strlen($ol_array) - 2
+                mb_strlen($ol_array) - 2
             );
         $ol_array .= ')';
 
@@ -398,6 +394,6 @@ abstract class GISGeometry
     {
         return '(new OpenLayers.Geometry.Point(' . $point[0] . ',' . $point[1] . '))'
         . '.transform(new OpenLayers.Projection("EPSG:'
-        . $srid . '"), map.getProjectionObject())';
+        . intval($srid) . '"), map.getProjectionObject())';
     }
 }

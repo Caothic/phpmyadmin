@@ -15,7 +15,7 @@ use PMA\libraries\Response;
  *
  * @package PhpMyAdmin
  * @access  public
- * @see     http://php.net/manual/en/book.xmlwriter.php
+ * @see     https://secure.php.net/manual/en/book.xmlwriter.php
  */
 class Eps
 {
@@ -270,8 +270,7 @@ class Eps
         PMA_downloadHeader(
             $fileName,
             'image/x-eps',
-            /*overload*/
-            mb_strlen($output)
+            strlen($output)
         );
         print $output;
     }

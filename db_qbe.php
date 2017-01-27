@@ -6,15 +6,16 @@
  * @package PhpMyAdmin
  */
 use PMA\libraries\SavedSearches;
+use PMA\libraries\URL;
+use PMA\libraries\Response;
 
 /**
  * requirements
  */
 require_once 'libraries/common.inc.php';
-require_once 'libraries/bookmark.lib.php';
 require_once 'libraries/sql.lib.php';
 
-$response = PMA\libraries\Response::getInstance();
+$response = Response::getInstance();
 
 // Gets the relation settings
 $cfgRelation = PMA_getRelationsParam();
@@ -80,19 +81,8 @@ if (isset($_REQUEST['submit_sql']) && ! empty($sql_query)) {
         $message_to_display = true;
     } else {
         $goto = 'db_sql.php';
-
-        // Parse and analyze the query
-        include_once 'libraries/parse_analyze.lib.php';
-        list(
-            $analyzed_sql_results,
-            $db,
-            $table
-        ) = PMA_parseAnalyze($sql_query, $db);
-        // @todo: possibly refactor
-        extract($analyzed_sql_results);
-
         PMA_executeQueryAndSendQueryResponse(
-            $analyzed_sql_results, // analyzed_sql_results
+            null, // analyzed_sql_results
             false, // is_gotofile
             $_REQUEST['db'], // db
             null, // table
@@ -142,7 +132,7 @@ unset($message_to_display);
 // create new qbe search instance
 $db_qbe = new PMA\libraries\DbQbe($GLOBALS['db'], $savedSearchList, $savedSearch);
 
-$url = 'db_designer.php' . PMA_URL_getCommon(
+$url = 'db_designer.php' . URL::getCommon(
     array_merge(
         $url_params,
         array('query' => 1)

@@ -13,10 +13,6 @@ use PMA\libraries\plugins\schema\ExportRelationSchema;
 use PMA\libraries\plugins\schema\pdf\TableStatsPdf;
 use PMA\libraries\plugins\schema\svg\TableStatsSvg;
 
-if (! defined('PHPMYADMIN')) {
-    exit;
-}
-
 /**
  * EPS Relation Schema Class
  *
@@ -40,6 +36,8 @@ class EpsRelationSchema extends ExportRelationSchema
 
     /** @var RelationStatsDia[] Relations */
     private $_relations = array();
+
+    private $_tablewidth;
 
     /**
      * The "PMA_EPS_Relation_Schema" constructor
@@ -205,7 +203,7 @@ class EpsRelationSchema extends ExportRelationSchema
     private function _drawRelations()
     {
         foreach ($this->_relations as $relation) {
-            $relation->relationDraw($this->showColor);
+            $relation->relationDraw();
         }
     }
 

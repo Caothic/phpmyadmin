@@ -17,9 +17,9 @@ use PMA\libraries\plugins\ExportPlugin;
 use PMA\libraries\Util;
 use PMA\libraries\properties\options\items\RadioPropertyItem;
 use PMA\libraries\properties\options\items\TextPropertyItem;
+use PMA\libraries\OpenDocument;
 
 $GLOBALS['odt_buffer'] = '';
-require_once 'libraries/opendocument.lib.php';
 
 /**
  * Handles the export for the ODT class
@@ -64,16 +64,16 @@ class ExportOdt extends ExportPlugin
         // create the root group that will be the options field for
         // $exportPluginProperties
         // this will be shown as "Format specific options"
-        $exportSpecificOptions = new OptionsPropertyRootGroup();
-        $exportSpecificOptions->setName("Format Specific Options");
+        $exportSpecificOptions = new OptionsPropertyRootGroup(
+            "Format Specific Options"
+        );
 
         // what to dump (structure/data/both) main group
-        $dumpWhat = new OptionsPropertyMainGroup();
-        $dumpWhat->setName("general_opts");
-        $dumpWhat->setText(__('Dump table'));
+        $dumpWhat = new OptionsPropertyMainGroup(
+            "general_opts", __('Dump table')
+        );
         // create primary items and add them to the group
-        $leaf = new RadioPropertyItem();
-        $leaf->setName("structure_or_data");
+        $leaf = new RadioPropertyItem("structure_or_data");
         $leaf->setValues(
             array(
                 'structure'          => __('structure'),
@@ -87,25 +87,28 @@ class ExportOdt extends ExportPlugin
 
         // structure options main group
         if (!$hide_structure) {
-            $structureOptions = new OptionsPropertyMainGroup();
-            $structureOptions->setName("structure");
-            $structureOptions->setText(__('Object creation options'));
+            $structureOptions = new OptionsPropertyMainGroup(
+                "structure", __('Object creation options')
+            );
             $structureOptions->setForce('data');
             // create primary items and add them to the group
             if (!empty($GLOBALS['cfgRelation']['relation'])) {
-                $leaf = new BoolPropertyItem();
-                $leaf->setName("relation");
-                $leaf->setText(__('Display foreign key relationships'));
+                $leaf = new BoolPropertyItem(
+                    "relation",
+                    __('Display foreign key relationships')
+                );
                 $structureOptions->addProperty($leaf);
             }
-            $leaf = new BoolPropertyItem();
-            $leaf->setName("comments");
-            $leaf->setText(__('Display comments'));
+            $leaf = new BoolPropertyItem(
+                "comments",
+                __('Display comments')
+            );
             $structureOptions->addProperty($leaf);
             if (!empty($GLOBALS['cfgRelation']['mimework'])) {
-                $leaf = new BoolPropertyItem();
-                $leaf->setName("mime");
-                $leaf->setText(__('Display MIME types'));
+                $leaf = new BoolPropertyItem(
+                    "mime",
+                    __('Display MIME types')
+                );
                 $structureOptions->addProperty($leaf);
             }
             // add the main group to the root group
@@ -113,18 +116,20 @@ class ExportOdt extends ExportPlugin
         }
 
         // data options main group
-        $dataOptions = new OptionsPropertyMainGroup();
-        $dataOptions->setName("data");
-        $dataOptions->setText(__('Data dump options'));
+        $dataOptions = new OptionsPropertyMainGroup(
+            "data", __('Data dump options')
+        );
         $dataOptions->setForce('structure');
         // create primary items and add them to the group
-        $leaf = new BoolPropertyItem();
-        $leaf->setName("columns");
-        $leaf->setText(__('Put columns names in the first row'));
+        $leaf = new BoolPropertyItem(
+            "columns",
+            __('Put columns names in the first row')
+        );
         $dataOptions->addProperty($leaf);
-        $leaf = new TextPropertyItem();
-        $leaf->setName('null');
-        $leaf->setText(__('Replace NULL with:'));
+        $leaf = new TextPropertyItem(
+            'null',
+            __('Replace NULL with:')
+        );
         $dataOptions->addProperty($leaf);
         // add the main group to the root group
         $exportSpecificOptions->addProperty($dataOptions);
@@ -143,7 +148,7 @@ class ExportOdt extends ExportPlugin
     {
         $GLOBALS['odt_buffer'] .= '<?xml version="1.0" encoding="utf-8"?' . '>'
             . '<office:document-content '
-            . $GLOBALS['OpenDocumentNS'] . 'office:version="1.0">'
+            . OpenDocument::NS . 'office:version="1.0">'
             . '<office:body>'
             . '<office:text>';
 
@@ -161,7 +166,7 @@ class ExportOdt extends ExportPlugin
             . '</office:body>'
             . '</office:document-content>';
         if (!PMA_exportOutputHandler(
-            PMA_createOpenDocument(
+            OpenDocument::create(
                 'application/vnd.oasis.opendocument.text',
                 $GLOBALS['odt_buffer']
             )

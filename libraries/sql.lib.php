@@ -9,10 +9,8 @@ use PMA\libraries\DisplayResults;
 use PMA\libraries\Message;
 use PMA\libraries\Table;
 use PMA\libraries\Response;
-
-if (!defined('PHPMYADMIN')) {
-    exit;
-}
+use PMA\libraries\URL;
+use PMA\libraries\Bookmark;
 
 /**
  * Parses and analyzes the given SQL query.
@@ -65,19 +63,19 @@ function PMA_handleSortOrder(
         );
 
         // Create the new query.
-        $full_sql_query = SqlParser\Utils\Query::replaceClause(
+        $full_sql_query = PhpMyAdmin\SqlParser\Utils\Query::replaceClause(
             $analyzed_sql_results['statement'],
             $analyzed_sql_results['parser']->list,
             'ORDER BY ' . $sortCol
         );
 
         // TODO: Avoid reparsing the query.
-        $analyzed_sql_results = SqlParser\Utils\Query::getAll($full_sql_query);
+        $analyzed_sql_results = PhpMyAdmin\SqlParser\Utils\Query::getAll($full_sql_query);
     } else {
         // Store the remembered table into session.
         $pmatable->setUiProp(
             Table::PROP_SORTED_COLUMN,
-            SqlParser\Utils\Query::getClause(
+            PhpMyAdmin\SqlParser\Utils\Query::getClause(
                 $analyzed_sql_results['statement'],
                 $analyzed_sql_results['parser']->list,
                 'ORDER BY'
@@ -95,7 +93,7 @@ function PMA_handleSortOrder(
  */
 function PMA_getSqlWithLimitClause(&$analyzed_sql_results)
 {
-    return SqlParser\Utils\Query::replaceClause(
+    return PhpMyAdmin\SqlParser\Utils\Query::replaceClause(
         $analyzed_sql_results['statement'],
         $analyzed_sql_results['parser']->list,
         'LIMIT ' . $_SESSION['tmpval']['pos'] . ', '
@@ -192,7 +190,7 @@ function PMA_getHtmlForRelationalColumnDropdown($db, $table, $column, $curr_valu
             . htmlspecialchars($_REQUEST['curr_value'])
             . '</span>'
             . '<a href="browse_foreigners.php'
-            . PMA_URL_getCommon($_url_params) . '"'
+            . URL::getCommon($_url_params) . '"'
             . 'class="ajax browse_foreign" ' . '>'
             . __('Browse foreign values')
             . '</a>';
@@ -226,7 +224,7 @@ function PMA_getHtmlForProfilingChart($url_query, $db, $profiling_results)
         $pma_token = $_SESSION[' PMA_token '];
         $url_query = isset($url_query)
             ? $url_query
-            : PMA_URL_getCommon(array('db' => $db));
+            : URL::getCommon(array('db' => $db));
 
         $profiling_table = '';
         $profiling_table .= '<fieldset><legend>' . __('Profiling')
@@ -408,6 +406,25 @@ function PMA_getHtmlForEnumColumnDropdown($db, $table, $column, $curr_value)
 }
 
 /**
+ * Get value of a column for a specific row (marked by $where_clause)
+ *
+ * @param string $db           current database
+ * @param string $table        current table
+ * @param string $column       current column
+ * @param string $where_clause where clause to select a particular row
+ *
+ * @return string with value
+ */
+function PMA_getFullValuesForSetColumn($db, $table, $column, $where_clause)
+{
+    $result = $GLOBALS['dbi']->fetchSingleRow(
+        "SELECT `$column` FROM `$db`.`$table` WHERE $where_clause"
+    );
+
+    return $result[$column];
+}
+
+/**
  * Get the HTML for the set column dropdown
  * During grid edit, if we have a set field, returns the html for the
  * dropdown
@@ -423,6 +440,18 @@ function PMA_getHtmlForSetColumn($db, $table, $column, $curr_value)
 {
     $values = PMA_getValuesForColumn($db, $table, $column);
     $dropdown = '';
+    $full_values =
+        isset($_REQUEST['get_full_values']) ? $_REQUEST['get_full_values'] : false;
+    $where_clause =
+        isset($_REQUEST['where_clause']) ? $_REQUEST['where_clause'] : null;
+
+    // If the $curr_value was truncated, we should
+    // fetch the correct full values from the table
+    if ($full_values && ! empty($where_clause)) {
+        $curr_value = PMA_getFullValuesForSetColumn(
+            $db, $table, $column, $where_clause
+        );
+    }
 
     //converts characters of $curr_value to HTML entities
     $converted_curr_value = htmlentities(
@@ -430,6 +459,7 @@ function PMA_getHtmlForSetColumn($db, $table, $column, $curr_value)
     );
 
     $selected_values = explode(',', $converted_curr_value);
+
     $dropdown .= PMA_getHtmlForOptionsList($values, $selected_values);
 
     $select_size = (sizeof($values) > 10) ? 10 : sizeof($values);
@@ -491,7 +521,7 @@ function PMA_getHtmlForOptionsList($values, $selected_values)
  * return null
  *
  * @param array  $displayParts   the parts to display
- * @param bool   $cfgBookmark    configuration setting for bookmarking
+ * @param array  $cfgBookmark    configuration setting for bookmarking
  * @param string $sql_query      sql query
  * @param string $db             current database
  * @param string $table          current table
@@ -508,7 +538,7 @@ function PMA_getHtmlForBookmark($displayParts, $cfgBookmark, $sql_query, $db,
         && ! empty($sql_query)
     ) {
         $goto = 'sql.php'
-            . PMA_URL_getCommon(
+            . URL::getCommon(
                 array(
                     'db' => $db,
                     'table' => $table,
@@ -516,14 +546,12 @@ function PMA_getHtmlForBookmark($displayParts, $cfgBookmark, $sql_query, $db,
                     'id_bookmark'=> 1,
                 )
             );
-        $bkm_sql_query = urlencode(
-            isset($complete_query) ? $complete_query : $sql_query
-        );
+        $bkm_sql_query = isset($complete_query) ? $complete_query : $sql_query;
         $html = '<form action="sql.php" method="post"'
             . ' onsubmit="return ! emptyCheckTheField(this,'
             . '\'bkm_fields[bkm_label]\');"'
             . ' class="bookmarkQueryForm print_ignore">';
-        $html .= PMA_URL_getHiddenInputs();
+        $html .= URL::getHiddenInputs();
         $html .= '<input type="hidden" name="db"'
             . ' value="' . htmlspecialchars($db) . '" />';
         $html .= '<input type="hidden" name="goto" value="' . $goto . '" />';
@@ -533,7 +561,7 @@ function PMA_getHtmlForBookmark($displayParts, $cfgBookmark, $sql_query, $db,
             . ' value="' . $bkm_user . '" />';
         $html .= '<input type="hidden" name="bkm_fields[bkm_sql_query]"'
             . ' value="'
-            . $bkm_sql_query
+            . htmlspecialchars($bkm_sql_query)
             . '" />';
         $html .= '<fieldset>';
         $html .= '<legend>';
@@ -599,7 +627,13 @@ function PMA_isRememberSortingOrder($analyzed_sql_results)
  */
 function PMA_isAppendLimitClause($analyzed_sql_results)
 {
-    return ($_SESSION['tmpval']['max_rows'] != 'all')
+    // Assigning LIMIT clause to an syntactically-wrong query
+    // is not needed. Also we would want to show the true query
+    // and the true error message to the query executor
+
+    return (isset($analyzed_sql_results['parser'])
+        && count($analyzed_sql_results['parser']->errors) === 0)
+        && ($_SESSION['tmpval']['max_rows'] != 'all')
         && ! ($analyzed_sql_results['is_export']
         || $analyzed_sql_results['is_analyse'])
         && ($analyzed_sql_results['select_from']
@@ -623,13 +657,14 @@ function PMA_isJustBrowsing($analyzed_sql_results, $find_real_end)
         && empty($analyzed_sql_results['union'])
         && empty($analyzed_sql_results['distinct'])
         && $analyzed_sql_results['select_from']
-        && (count($analyzed_sql_results['select_tables']) <= 1)
+        && (count($analyzed_sql_results['select_tables']) === 1)
         && (empty($analyzed_sql_results['statement']->where)
             || (count($analyzed_sql_results['statement']->where) == 1
                 && $analyzed_sql_results['statement']->where[0]->expr ==='1'))
         && empty($analyzed_sql_results['group'])
         && ! isset($find_real_end)
         && ! $analyzed_sql_results['is_subquery']
+        && ! $analyzed_sql_results['join']
         && empty($analyzed_sql_results['having']);
 }
 
@@ -661,8 +696,7 @@ function PMA_isDeleteTransformationInfo($analyzed_sql_results)
 function PMA_hasNoRightsToDropDatabase($analyzed_sql_results,
     $allowUserDropDatabase, $is_superuser
 ) {
-    return ! defined('PMA_CHK_DROP')
-        && ! $allowUserDropDatabase
+    return ! $allowUserDropDatabase
         && isset($analyzed_sql_results['drop_database'])
         && $analyzed_sql_results['drop_database']
         && ! $is_superuser;
@@ -695,7 +729,7 @@ function PMA_setColumnProperty($pmatable, $request_index)
         $_REQUEST['table_create_time']
     );
     if (gettype($retval) != 'boolean') {
-        $response = PMA\libraries\Response::getInstance();
+        $response = Response::getInstance();
         $response->setRequestStatus(false);
         $response->addJSON('message', $retval->getString());
         exit;
@@ -727,7 +761,7 @@ function PMA_setColumnOrderOrVisibility($table, $db)
         $retval = PMA_setColumnProperty($pmatable, 'col_visib');
     }
 
-    $response = PMA\libraries\Response::getInstance();
+    $response = Response::getInstance();
     $response->setRequestStatus($retval == true);
     exit;
 }
@@ -735,19 +769,19 @@ function PMA_setColumnOrderOrVisibility($table, $db)
 /**
  * Function to add a bookmark
  *
- * @param String $pmaAbsoluteUri absolute URI
- * @param String $goto           goto page URL
+ * @param String $goto goto page URL
  *
  * @return void
  */
-function PMA_addBookmark($pmaAbsoluteUri, $goto)
+function PMA_addBookmark($goto)
 {
-    $result = PMA_Bookmark_save(
+    $bookmark = Bookmark::createBookmark(
         $_POST['bkm_fields'],
         (isset($_POST['bkm_all_users'])
             && $_POST['bkm_all_users'] == 'true' ? true : false
         )
     );
+    $result = $bookmark->save();
     $response = Response::getInstance();
     if ($response->isAjax()) {
         if ($result) {
@@ -766,7 +800,7 @@ function PMA_addBookmark($pmaAbsoluteUri, $goto)
          * @todo In which scenario does this happen?
          */
         PMA_sendHeaderLocation(
-            $pmaAbsoluteUri . $goto
+            './' . $goto
             . '&label=' . $_POST['bkm_fields']['bkm_label']
         );
     }
@@ -810,7 +844,7 @@ function PMA_getRelationalValues($db, $table)
     $dropdown = PMA_getHtmlForRelationalColumnDropdown(
         $db, $table, $column, $curr_value
     );
-    $response = PMA\libraries\Response::getInstance();
+    $response = Response::getInstance();
     $response->addJSON('dropdown', $dropdown);
     exit;
 }
@@ -828,14 +862,16 @@ function PMA_getEnumOrSetValues($db, $table, $columnType)
 {
     $column = $_REQUEST['column'];
     $curr_value = $_REQUEST['curr_value'];
-    $response = PMA\libraries\Response::getInstance();
+    $response = Response::getInstance();
     if ($columnType == "enum") {
         $dropdown = PMA_getHtmlForEnumColumnDropdown(
             $db, $table, $column, $curr_value
         );
         $response->addJSON('dropdown', $dropdown);
     } else {
-        $select = PMA_getHtmlForSetColumn($db, $table, $column, $curr_value);
+        $select = PMA_getHtmlForSetColumn(
+            $db, $table, $column, $curr_value
+        );
         $response->addJSON('select', $select);
     }
     exit;
@@ -851,24 +887,23 @@ function PMA_getEnumOrSetValues($db, $table, $columnType)
  */
 function PMA_getDefaultSqlQueryForBrowse($db, $table)
 {
-    include_once 'libraries/bookmark.lib.php';
-    $book_sql_query = PMA_Bookmark_get(
+    $bookmark = Bookmark::get(
         $db,
-        '\'' . PMA\libraries\Util::sqlAddSlashes($table) . '\'',
+        $table,
         'label',
         false,
         true
     );
 
-    if (! empty($book_sql_query)) {
+    if (! empty($bookmark) && ! empty($bookmark->getQuery())) {
         $GLOBALS['using_bookmark_message'] = Message::notice(
             __('Using bookmark "%s" as default browse query.')
         );
         $GLOBALS['using_bookmark_message']->addParam($table);
-        $GLOBALS['using_bookmark_message']->addMessage(
+        $GLOBALS['using_bookmark_message']->addHtml(
             PMA\libraries\Util::showDocu('faq', 'faq6-22')
         );
-        $sql_query = $book_sql_query;
+        $sql_query = $bookmark->getQuery();
     } else {
 
         $defaultOrderByClause = '';
@@ -904,7 +939,6 @@ function PMA_getDefaultSqlQueryForBrowse($db, $table)
             . $defaultOrderByClause;
 
     }
-    unset($book_sql_query);
 
     return $sql_query;
 }
@@ -922,7 +956,7 @@ function PMA_handleQueryExecuteError($is_gotofile, $error, $full_sql_query)
 {
     if ($is_gotofile) {
         $message = PMA\libraries\Message::rawError($error);
-        $response = PMA\libraries\Response::getInstance();
+        $response = Response::getInstance();
         $response->setRequestStatus(false);
         $response->addJSON('message', $message);
     } else {
@@ -945,26 +979,25 @@ function PMA_handleQueryExecuteError($is_gotofile, $error, $full_sql_query)
 function PMA_storeTheQueryAsBookmark($db, $bkm_user, $sql_query_for_bookmark,
     $bkm_label, $bkm_replace
 ) {
-    include_once 'libraries/bookmark.lib.php';
     $bfields = array(
                  'bkm_database' => $db,
                  'bkm_user'  => $bkm_user,
-                 'bkm_sql_query' => urlencode($sql_query_for_bookmark),
+                 'bkm_sql_query' => $sql_query_for_bookmark,
                  'bkm_label' => $bkm_label
     );
 
     // Should we replace bookmark?
     if (isset($bkm_replace)) {
-        $bookmarks = PMA_Bookmark_getList($db);
-        foreach ($bookmarks as $key => $val) {
-            if ($val['label'] == $bkm_label) {
-                PMA_Bookmark_delete($key);
+        $bookmarks = Bookmark::getList($db);
+        foreach ($bookmarks as $bookmark) {
+            if ($bookmark->getLabel() == $bkm_label) {
+                $bookmark->delete();
             }
         }
     }
 
-    PMA_Bookmark_save($bfields, isset($_POST['bkm_all_users']));
-
+    $bookmark = Bookmark::createBookmark($bfields, isset($_POST['bkm_all_users']));
+    $bookmark->save();
 }
 
 /**
@@ -1022,7 +1055,7 @@ function PMA_getNumberOfRowsAffectedOrChanged($is_affected, $result)
  */
 function PMA_hasCurrentDbChanged($db)
 {
-    if (/*overload*/mb_strlen($db)) {
+    if (strlen($db) > 0) {
         $current_db = $GLOBALS['dbi']->fetchValue('SELECT DATABASE()');
         // $current_db is false, except when a USE statement was sent
         return ($current_db != false) && ($db !== $current_db);
@@ -1045,9 +1078,9 @@ function PMA_cleanupRelations($db, $table, $column, $purge)
 {
     include_once 'libraries/relation_cleanup.lib.php';
 
-    if (! empty($purge) && /*overload*/mb_strlen($db)) {
-        if (/*overload*/mb_strlen($table)) {
-            if (isset($column) && /*overload*/mb_strlen($column)) {
+    if (! empty($purge) && strlen($db) > 0) {
+        if (strlen($table) > 0) {
+            if (isset($column) && strlen($column) > 0) {
                 PMA_relationsCleanupColumn($db, $table, $column);
             } else {
                 PMA_relationsCleanupTable($db, $table);
@@ -1075,6 +1108,11 @@ function PMA_countQueryResults(
     $num_rows, $justBrowsing, $db, $table, $analyzed_sql_results
 ) {
 
+    /* Shortcut for not analyzed/empty query */
+    if (empty($analyzed_sql_results)) {
+        return 0;
+    }
+
     if (!PMA_isAppendLimitClause($analyzed_sql_results)) {
         // if we did not append a limit, set this to get a correct
         // "Showing rows..." message
@@ -1085,7 +1123,7 @@ function PMA_countQueryResults(
     ) {
         //    c o u n t    q u e r y
 
-        // If we are "just browsing", there is only one table,
+        // If we are "just browsing", there is only one table (and no join),
         // and no WHERE clause (or just 'WHERE 1 '),
         // we do a quick count (which uses MaxExactCount) because
         // SQL_CALC_FOUND_ROWS is not quick on large InnoDB tables
@@ -1118,7 +1156,7 @@ function PMA_countQueryResults(
             // For UNION statements, only a SQL_CALC_FOUND_ROWS is required
             // after the first SELECT.
 
-            $count_query = SqlParser\Utils\Query::replaceClause(
+            $count_query = PhpMyAdmin\SqlParser\Utils\Query::replaceClause(
                 $analyzed_sql_results['statement'],
                 $analyzed_sql_results['parser']->list,
                 'SELECT SQL_CALC_FOUND_ROWS',
@@ -1164,7 +1202,7 @@ function PMA_countQueryResults(
 function PMA_executeTheQuery($analyzed_sql_results, $full_sql_query, $is_gotofile,
     $db, $table, $find_real_end, $sql_query_for_bookmark, $extra_data
 ) {
-    $response = PMA\libraries\Response::getInstance();
+    $response = Response::getInstance();
     $response->getHeader()->getMenu()->setTable($table);
 
     // Only if we ask to see the php code
@@ -1186,14 +1224,16 @@ function PMA_executeTheQuery($analyzed_sql_results, $full_sql_query, $is_gotofil
 
         // Displays an error message if required and stop parsing the script
         $error = $GLOBALS['dbi']->getError();
-        if ($error) {
+        if ($error && $GLOBALS['cfg']['IgnoreMultiSubmitErrors']) {
+            $extra_data['error'] = $error;
+        } elseif ($error) {
             PMA_handleQueryExecuteError($is_gotofile, $error, $full_sql_query);
         }
 
         // If there are no errors and bookmarklabel was given,
         // store the query as a bookmark
         if (! empty($_POST['bkm_label']) && ! empty($sql_query_for_bookmark)) {
-            $cfgBookmark = PMA_Bookmark_getParams();
+            $cfgBookmark = Bookmark::getParams();
             PMA_storeTheQueryAsBookmark(
                 $db, $cfgBookmark['user'],
                 $sql_query_for_bookmark, $_POST['bkm_label'],
@@ -1231,8 +1271,8 @@ function PMA_executeTheQuery($analyzed_sql_results, $full_sql_query, $is_gotofil
         );
 
         if (isset($_REQUEST['dropped_column'])
-            && /*overload*/mb_strlen($db)
-            && /*overload*/mb_strlen($table)
+            && strlen($db) > 0
+            && strlen($table) > 0
         ) {
             // to refresh the list of indexes (Ajax mode)
             $extra_data['indexes_list'] = PMA\libraries\Index::getHtmlForIndexes(
@@ -1259,7 +1299,7 @@ function PMA_deleteTransformationInfo($db, $table, $analyzed_sql_results)
 {
     include_once 'libraries/transformations.lib.php';
     $statement = $analyzed_sql_results['statement'];
-    if ($statement instanceof SqlParser\Statements\AlterStatement) {
+    if ($statement instanceof PhpMyAdmin\SqlParser\Statements\AlterStatement) {
         if (!empty($statement->altered[0])
             && $statement->altered[0]->options->has('DROP')
         ) {
@@ -1271,7 +1311,7 @@ function PMA_deleteTransformationInfo($db, $table, $analyzed_sql_results)
                 );
             }
         }
-    } elseif ($statement instanceof SqlParser\Statements\DropStatement) {
+    } elseif ($statement instanceof PhpMyAdmin\SqlParser\Statements\DropStatement) {
         PMA_clearTransformations($db, $table);
     }
 }
@@ -1302,7 +1342,7 @@ function PMA_getMessageForNoRowsReturned($message_to_show,
         if ($insert_id != 0) {
             // insert_id is id of FIRST record inserted in one insert,
             // so if we inserted multiple rows, we had to increment this
-            $message->addMessage('[br]');
+            $message->addText('[br]');
             // need to use a temporary because the Message class
             // currently supports adding parameters only to the first
             // message
@@ -1345,7 +1385,7 @@ function PMA_getMessageForNoRowsReturned($message_to_show,
 
     // In case of ROLLBACK, notify the user.
     if (isset($_REQUEST['rollback_query'])) {
-        $message->addMessage(__('[ROLLBACK occurred.]'));
+        $message->addText(__('[ROLLBACK occurred.]'));
     }
 
     return $message;
@@ -1369,33 +1409,41 @@ function PMA_getMessageForNoRowsReturned($message_to_show,
  * @param int            $num_rows             number of rows
  * @param DisplayResults $displayResultsObject DisplayResult instance
  * @param array          $extra_data           extra data
+ * @param string         $pmaThemeImage        uri of the theme image
+ * @param object         $result               executed query results
+ * @param string         $sql_query            sql query
+ * @param string         $complete_query       complete sql query
  *
  * @return string html
  */
 function PMA_getQueryResponseForNoResultsReturned($analyzed_sql_results, $db,
-    $table, $message_to_show, $num_rows, $displayResultsObject, $extra_data
+    $table, $message_to_show, $num_rows, $displayResultsObject, $extra_data,
+    $pmaThemeImage, $result, $sql_query, $complete_query
 ) {
     if (PMA_isDeleteTransformationInfo($analyzed_sql_results)) {
         PMA_deleteTransformationInfo($db, $table, $analyzed_sql_results);
     }
 
-    $message = PMA_getMessageForNoRowsReturned(
-        isset($message_to_show) ? $message_to_show : null,
-        $analyzed_sql_results, $num_rows
-    );
+    if (isset($extra_data['error'])) {
+        $message = PMA\libraries\Message::rawError($extra_data['error']);
+    } else {
+        $message = PMA_getMessageForNoRowsReturned(
+            isset($message_to_show) ? $message_to_show : null,
+            $analyzed_sql_results, $num_rows
+        );
+    }
 
     $html_output = '';
+    $html_message = PMA\libraries\Util::getMessage(
+        $message, $GLOBALS['sql_query'], 'success'
+    );
+    $html_output .= $html_message;
     if (!isset($GLOBALS['show_as_php'])) {
 
         if (! empty($GLOBALS['reload'])) {
             $extra_data['reload'] = 1;
             $extra_data['db'] = $GLOBALS['db'];
         }
-
-        $html_message = PMA\libraries\Util::getMessage(
-            $message, $GLOBALS['sql_query'], 'success'
-        );
-        $html_output .= $html_message;
 
         // For ajax requests add message and sql_query as JSON
         if (empty($_REQUEST['ajax_page_request'])) {
@@ -1405,13 +1453,44 @@ function PMA_getQueryResponseForNoResultsReturned($analyzed_sql_results, $db,
             }
         }
 
-        $response = PMA\libraries\Response::getInstance();
+        $response = Response::getInstance();
         $response->addJSON(isset($extra_data) ? $extra_data : array());
 
-        if (!empty($analyzed_sql_results['is_select'])) {
+        if (!empty($analyzed_sql_results['is_select']) &&
+                !isset($extra_data['error'])) {
+            $url_query = isset($url_query) ? $url_query : null;
+
+            $displayParts = array(
+                'edit_lnk' => null,
+                'del_lnk' => null,
+                'sort_lnk' => '1',
+                'nav_bar'  => '0',
+                'bkm_form' => '1',
+                'text_btn' => '1',
+                'pview_lnk' => '1'
+            );
+
+            $html_output .= PMA_getHtmlForSqlQueryResultsTable(
+                $displayResultsObject,
+                $pmaThemeImage, $url_query, $displayParts,
+                false, 0, $num_rows, true, $result,
+                $analyzed_sql_results, true
+            );
+
             $html_output .= $displayResultsObject->getCreateViewQueryResultOp(
                 $analyzed_sql_results
             );
+
+            $cfgBookmark = Bookmark::getParams();
+            if ($cfgBookmark) {
+                $html_output .= PMA_getHtmlForBookmark(
+                    $displayParts,
+                    $cfgBookmark,
+                    $sql_query, $db, $table,
+                    isset($complete_query) ? $complete_query : $sql_query,
+                    $cfgBookmark['user']
+                );
+            }
         }
     }
 
@@ -1432,7 +1511,7 @@ function PMA_sendResponseForGridEdit($result)
     if (stristr($field_flags, PMA\libraries\DisplayResults::BINARY_FIELD)) {
         $row[0] = bin2hex($row[0]);
     }
-    $response = PMA\libraries\Response::getInstance();
+    $response = Response::getInstance();
     $response->addJSON('value', $row[0]);
     exit;
 }
@@ -1506,15 +1585,16 @@ function PMA_getBookmarkCreatedMessage()
  * @param bool           $showtable            whether to show table or not
  * @param object         $result               result of the executed query
  * @param array          $analyzed_sql_results analyzed sql results
+ * @param bool           $is_limited_display   Show only limited operations or not
  *
  * @return String
  */
 function PMA_getHtmlForSqlQueryResultsTable($displayResultsObject,
     $pmaThemeImage, $url_query, $displayParts,
     $editable, $unlim_num_rows, $num_rows, $showtable, $result,
-    $analyzed_sql_results
+    $analyzed_sql_results, $is_limited_display = false
 ) {
-    $printview = isset($_REQUEST['printview']) ? $_REQUEST['printview'] : null;
+    $printview = isset($_REQUEST['printview']) && $_REQUEST['printview'] == '1' ? '1' : null;
     $table_html = '';
     $browse_dist = ! empty($_REQUEST['is_browse_distinct']);
 
@@ -1566,7 +1646,8 @@ function PMA_getHtmlForSqlQueryResultsTable($displayResultsObject,
                 $table_html .= $displayResultsObject->getTable(
                     $result,
                     $displayParts,
-                    $analyzed_sql_results
+                    $analyzed_sql_results,
+                    $is_limited_display
                 );
             }
 
@@ -1604,7 +1685,8 @@ function PMA_getHtmlForSqlQueryResultsTable($displayResultsObject,
         $table_html .= $displayResultsObject->getTable(
             $result,
             $displayParts,
-            $analyzed_sql_results
+            $analyzed_sql_results,
+            $is_limited_display
         );
         $GLOBALS['dbi']->freeResult($result);
     }
@@ -1770,32 +1852,40 @@ function PMA_getQueryResponseForResultsReturned($result, $analyzed_sql_results,
     $showtable = isset($showtable) ? $showtable : null;
     $url_query = isset($url_query) ? $url_query : null;
 
-    $response = PMA\libraries\Response::getInstance();
+    $response = Response::getInstance();
     $header   = $response->getHeader();
     $scripts  = $header->getScripts();
+
+    $just_one_table = PMA_resultSetHasJustOneTable($fields_meta);
 
     // hide edit and delete links:
     // - for information_schema
     // - if the result set does not contain all the columns of a unique key
     //   (unless this is an updatable view)
+    // - if the SELECT query contains a join or a subquery
 
     $updatableView = false;
 
     $statement = $analyzed_sql_results['statement'];
-    if ($statement instanceof SqlParser\Statements\SelectStatement) {
+    if ($statement instanceof PhpMyAdmin\SqlParser\Statements\SelectStatement) {
         if (!empty($statement->expr)) {
             if ($statement->expr[0]->expr === '*') {
                 $_table = new Table($table, $db);
                 $updatableView = $_table->isUpdatableView();
             }
         }
+
+        if ($analyzed_sql_results['join']
+            || $analyzed_sql_results['is_subquery']
+            || count($analyzed_sql_results['select_tables']) !== 1
+        ) {
+            $just_one_table = false;
+        }
     }
 
     $has_unique = PMA_resultSetContainsUniqueKey(
         $db, $table, $fields_meta
     );
-
-    $just_one_table = PMA_resultSetHasJustOneTable($fields_meta);
 
     $editable = ($has_unique
         || $GLOBALS['cfg']['RowActionLinksWithoutUnique']
@@ -1812,7 +1902,7 @@ function PMA_getQueryResponseForResultsReturned($result, $analyzed_sql_results,
         'pview_lnk' => '1'
     );
 
-    if (!empty($table) && ($GLOBALS['dbi']->isSystemSchema($db) || !$editable)) {
+    if ($GLOBALS['dbi']->isSystemSchema($db) || !$editable) {
         $displayParts = array(
             'edit_lnk' => $displayResultsObject::NO_EDIT_OR_DELETE,
             'del_lnk' => $displayResultsObject::NO_EDIT_OR_DELETE,
@@ -1895,7 +1985,7 @@ function PMA_getQueryResponseForResultsReturned($result, $analyzed_sql_results,
         isset($selectedTables) ? $selectedTables : null, $db
     );
 
-    $cfgBookmark = PMA_Bookmark_getParams();
+    $cfgBookmark = Bookmark::getParams();
     if ($cfgBookmark) {
         $bookmark_support_html = PMA_getHtmlForBookmark(
             $displayParts,
@@ -1952,6 +2042,22 @@ function PMA_executeQueryAndSendQueryResponse($analyzed_sql_results,
     $disp_query, $disp_message, $query_type, $sql_query, $selectedTables,
     $complete_query
 ) {
+    if ($analyzed_sql_results == null) {
+        // Parse and analyze the query
+        include_once 'libraries/parse_analyze.lib.php';
+        list(
+            $analyzed_sql_results,
+            $db,
+            $table_from_sql
+        ) = PMA_parseAnalyze($sql_query, $db);
+        // @todo: possibly refactor
+        extract($analyzed_sql_results);
+
+        if ($table != $table_from_sql && !empty($table_from_sql)) {
+            $table = $table_from_sql;
+        }
+    }
+
     $html_output = PMA_executeQueryAndGetQueryResponse(
         $analyzed_sql_results, // analyzed_sql_results
         $is_gotofile, // is_gotofile
@@ -1973,7 +2079,7 @@ function PMA_executeQueryAndSendQueryResponse($analyzed_sql_results,
         $complete_query // complete_query
     );
 
-    $response = PMA\libraries\Response::getInstance();
+    $response = Response::getInstance();
     $response->addHTML($html_output);
 }
 
@@ -2018,7 +2124,8 @@ function PMA_executeQueryAndGetQueryResponse($analyzed_sql_results,
     // (the parser never sets the 'union' key to 0).
     // Handling is also not required if we came from the "Sort by key"
     // drop-down.
-    if (PMA_isRememberSortingOrder($analyzed_sql_results)
+    if (! empty($analyzed_sql_results)
+        && PMA_isRememberSortingOrder($analyzed_sql_results)
         && empty($analyzed_sql_results['union'])
         && ! isset($_REQUEST['sort_by_key'])
     ) {
@@ -2066,7 +2173,9 @@ function PMA_executeQueryAndGetQueryResponse($analyzed_sql_results,
         $html_output = PMA_getQueryResponseForNoResultsReturned(
             $analyzed_sql_results, $db, $table,
             isset($message_to_show) ? $message_to_show : null,
-            $num_rows, $displayResultsObject, $extra_data
+            $num_rows, $displayResultsObject, $extra_data,
+            $pmaThemeImage, isset($result) ? $result : null,
+            $sql_query, isset($complete_query) ? $complete_query : null
         );
     } else {
         // At least one row is returned -> displays a table with results
@@ -2139,4 +2248,3 @@ function PMA_calculatePosForLastPage($db, $table, $pos)
 
     return $pos;
 }
-

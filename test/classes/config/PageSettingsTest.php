@@ -7,6 +7,7 @@
  */
 use PMA\libraries\config\PageSettings;
 
+require_once 'test/PMATestCase.php';
 require_once 'libraries/config/user_preferences.forms.php';
 require_once 'libraries/config/page_settings.forms.php';
 
@@ -15,7 +16,7 @@ require_once 'libraries/config/page_settings.forms.php';
  *
  * @package PhpMyAdmin-test
  */
-class PageSettingsTest extends PHPUnit_Framework_TestCase
+class PageSettingsTest extends PMATestCase
 {
     /**
      * Setup tests
@@ -24,8 +25,8 @@ class PageSettingsTest extends PHPUnit_Framework_TestCase
      */
     public function setUp()
     {
-        $GLOBALS['cfg']['ServerDefault'] = 1;
         $GLOBALS['server'] = 1;
+        $GLOBALS['db'] = 'db';
     }
 
     /**
@@ -56,7 +57,7 @@ class PageSettingsTest extends PHPUnit_Framework_TestCase
             '<div id="page_settings_modal">'
             . '<div class="page_settings">'
             . '<form method="post" '
-            . 'action="phpunit?db=&amp;table=&amp;server=1&amp;target=&amp;lang=en&amp;token=token" '
+            . 'action="phpunit?db=db&amp;table=&amp;server=1&amp;target=&amp;lang=en" '
             . 'class="config-form disableAjax">',
             $html
         );

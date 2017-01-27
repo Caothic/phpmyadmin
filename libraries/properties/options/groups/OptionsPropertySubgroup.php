@@ -9,10 +9,6 @@ namespace PMA\libraries\properties\options\groups;
 
 use PMA\libraries\properties\options\OptionsPropertyGroup;
 
-if (!defined('PHPMYADMIN')) {
-    exit;
-}
-
 /**
  * Group property item class of type subgroup
  *
@@ -46,7 +42,7 @@ class OptionsPropertySubgroup extends OptionsPropertyGroup
     /**
      * Gets the subgroup header
      *
-     * @return string
+     * @return \PMA\libraries\properties\PropertyItem
      */
     public function getSubgroupHeader()
     {
@@ -56,7 +52,7 @@ class OptionsPropertySubgroup extends OptionsPropertyGroup
     /**
      * Sets the subgroup header
      *
-     * @param string $subgroupHeader subgroup header
+     * @param \PMA\libraries\properties\PropertyItem $subgroupHeader subgroup header
      *
      * @return void
      */

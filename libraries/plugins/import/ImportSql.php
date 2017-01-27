@@ -15,11 +15,6 @@ use PMA\libraries\properties\options\groups\OptionsPropertyRootGroup;
 use PMA;
 use PMA\libraries\plugins\ImportPlugin;
 use PMA\libraries\properties\options\items\SelectPropertyItem;
-use SqlParser;
-
-if (!defined('PHPMYADMIN')) {
-    exit;
-}
 
 /**
  * Handles the import for the SQL format
@@ -60,16 +55,17 @@ class ImportSql extends ImportPlugin
             // create the root group that will be the options field for
             // $importPluginProperties
             // this will be shown as "Format specific options"
-            $importSpecificOptions = new OptionsPropertyRootGroup();
-            $importSpecificOptions->setName("Format Specific Options");
+            $importSpecificOptions = new OptionsPropertyRootGroup(
+                "Format Specific Options"
+            );
 
             // general options main group
-            $generalOptions = new OptionsPropertyMainGroup();
-            $generalOptions->setName("general_opts");
+            $generalOptions = new OptionsPropertyMainGroup("general_opts");
             // create primary items and add them to the group
-            $leaf = new SelectPropertyItem();
-            $leaf->setName("compatibility");
-            $leaf->setText(__('SQL compatibility mode:'));
+            $leaf = new SelectPropertyItem(
+                "compatibility",
+                __('SQL compatibility mode:')
+            );
             $leaf->setValues($values);
             $leaf->setDoc(
                 array(
@@ -78,9 +74,8 @@ class ImportSql extends ImportPlugin
                 )
             );
             $generalOptions->addProperty($leaf);
-            $leaf = new BoolPropertyItem();
-            $leaf->setName("no_auto_value_on_zero");
-            $leaf->setText(
+            $leaf = new BoolPropertyItem(
+                "no_auto_value_on_zero",
                 __('Do not use <code>AUTO_INCREMENT</code> for zero values')
             );
             $leaf->setDoc(
@@ -115,7 +110,7 @@ class ImportSql extends ImportPlugin
         // Handle compatibility options.
         $this->_setSQLMode($GLOBALS['dbi'], $_REQUEST);
 
-        $bq = new SqlParser\Utils\BufferedQuery();
+        $bq = new \PhpMyAdmin\SqlParser\Utils\BufferedQuery();
         if (isset($_POST['sql_delimiter'])) {
             $bq->setDelimiter($_POST['sql_delimiter']);
         }
@@ -159,19 +154,19 @@ class ImportSql extends ImportPlugin
             }
 
             // Executing the query.
-            PMA_importRunQuery($statement, $statement, false, $sql_data);
+            PMA_importRunQuery($statement, $statement, $sql_data);
         }
 
         // Extracting remaining statements.
         while ((!$error) && (!$timeout_passed) && (!empty($bq->query))) {
             $statement = $bq->extract(true);
             if (!empty($statement)) {
-                PMA_importRunQuery($statement, $statement, false, $sql_data);
+                PMA_importRunQuery($statement, $statement, $sql_data);
             }
         }
 
         // Finishing.
-        PMA_importRunQuery('', '', false, $sql_data);
+        PMA_importRunQuery('', '', $sql_data);
     }
 
     /**

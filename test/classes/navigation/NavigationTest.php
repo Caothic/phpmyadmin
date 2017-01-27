@@ -7,18 +7,18 @@
  */
 
 use PMA\libraries\Theme;
+use PMA\libraries\URL;
 
 require_once 'libraries/database_interface.inc.php';
 require_once 'libraries/relation.lib.php';
-require_once 'libraries/url_generating.lib.php';
-require_once 'libraries/php-gettext/gettext.inc';
+require_once 'test/PMATestCase.php';
 
 /**
  * Tests for PMA\libraries\navigation\Navigation class
  *
  * @package PhpMyAdmin-test
  */
-class NavigationTest extends PHPUnit_Framework_TestCase
+class NavigationTest extends PMATestCase
 {
     /**
      * @var PMA\libraries\navigation\Navigation
@@ -38,10 +38,7 @@ class NavigationTest extends PHPUnit_Framework_TestCase
         $GLOBALS['cfgRelation']['navigationhiding'] = 'navigationhiding';
         $GLOBALS['cfg']['Server']['user'] = 'user';
         $GLOBALS['cfg']['ActionLinksMode'] = 'both';
-
-        $GLOBALS['pmaThemeImage'] = 'image';
-        $_SESSION['PMA_Theme'] = Theme::load('./themes/pmahomme');
-        $_SESSION['PMA_Theme'] = new Theme();
+        $GLOBALS['pmaThemeImage'] = '';
     }
 
     /**
@@ -72,6 +69,9 @@ class NavigationTest extends PHPUnit_Framework_TestCase
         $dbi->expects($this->once())
             ->method('tryQuery')
             ->with($expectedQuery);
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
+
         $GLOBALS['dbi'] = $dbi;
         $this->object->hideNavigationItem('itemName', 'itemType', 'db');
     }
@@ -93,6 +93,9 @@ class NavigationTest extends PHPUnit_Framework_TestCase
         $dbi->expects($this->once())
             ->method('tryQuery')
             ->with($expectedQuery);
+
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
         $GLOBALS['dbi'] = $dbi;
         $this->object->unhideNavigationItem('itemName', 'itemType', 'db');
     }
@@ -115,7 +118,7 @@ class NavigationTest extends PHPUnit_Framework_TestCase
             ->method('tryQuery')
             ->with($expectedQuery)
             ->will($this->returnValue(true));
-        $dbi->expects($this->at(1))
+        $dbi->expects($this->at(3))
             ->method('fetchArray')
             ->will(
                 $this->returnValue(
@@ -125,7 +128,7 @@ class NavigationTest extends PHPUnit_Framework_TestCase
                     )
                 )
             );
-        $dbi->expects($this->at(2))
+        $dbi->expects($this->at(4))
             ->method('fetchArray')
             ->will(
                 $this->returnValue(
@@ -135,11 +138,14 @@ class NavigationTest extends PHPUnit_Framework_TestCase
                     )
                 )
             );
-        $dbi->expects($this->at(3))
+        $dbi->expects($this->at(5))
             ->method('fetchArray')
             ->will($this->returnValue(false));
         $dbi->expects($this->once())
             ->method('freeResult');
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
+
         $GLOBALS['dbi'] = $dbi;
 
         $html = $this->object->getItemUnhideDialog('db');
@@ -148,8 +154,9 @@ class NavigationTest extends PHPUnit_Framework_TestCase
             $html
         );
         $this->assertContains(
-            '<a href="navigation.php' . PMA_URL_getCommon()
-            . '&unhideNavItem=true&itemType=table&itemName=tableName&dbName=db"'
+            '<a href="navigation.php?'
+            . 'unhideNavItem=1&amp;itemType=table&amp;'
+            . 'itemName=tableName&amp;dbName=db&amp;lang=en"'
             . ' class="unhideNavItem ajax">',
             $html
         );

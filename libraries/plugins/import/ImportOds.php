@@ -18,19 +18,6 @@ use PMA;
 use PMA\libraries\plugins\ImportPlugin;
 use SimpleXMLElement;
 
-if (!defined('PHPMYADMIN')) {
-    exit;
-}
-
-/**
- * We need way to disable external XML entities processing.
- */
-if (!function_exists('libxml_disable_entity_loader')) {
-    $GLOBALS['skip_import'] = true;
-
-    return;
-}
-
 /**
  * Handles the import for the ODS format
  *
@@ -63,16 +50,15 @@ class ImportOds extends ImportPlugin
         // create the root group that will be the options field for
         // $importPluginProperties
         // this will be shown as "Format specific options"
-        $importSpecificOptions = new OptionsPropertyRootGroup();
-        $importSpecificOptions->setName("Format Specific Options");
+        $importSpecificOptions = new OptionsPropertyRootGroup(
+            "Format Specific Options"
+        );
 
         // general options main group
-        $generalOptions = new OptionsPropertyMainGroup();
-        $generalOptions->setName("general_opts");
+        $generalOptions = new OptionsPropertyMainGroup("general_opts");
         // create primary items and add them to the group
-        $leaf = new BoolPropertyItem();
-        $leaf->setName("col_names");
-        $leaf->setText(
+        $leaf = new BoolPropertyItem(
+            "col_names",
             __(
                 'The first line of the file contains the table column names'
                 . ' <i>(if this is unchecked, the first line will become part'
@@ -80,21 +66,22 @@ class ImportOds extends ImportPlugin
             )
         );
         $generalOptions->addProperty($leaf);
-        $leaf = new BoolPropertyItem();
-        $leaf->setName("empty_rows");
-        $leaf->setText(__('Do not import empty rows'));
+        $leaf = new BoolPropertyItem(
+            "empty_rows",
+            __('Do not import empty rows')
+        );
         $generalOptions->addProperty($leaf);
-        $leaf = new BoolPropertyItem();
-        $leaf->setName("recognize_percentages");
-        $leaf->setText(
+        $leaf = new BoolPropertyItem(
+            "recognize_percentages",
             __(
                 'Import percentages as proper decimals <i>(ex. 12.00% to .12)</i>'
             )
         );
         $generalOptions->addProperty($leaf);
-        $leaf = new BoolPropertyItem();
-        $leaf->setName("recognize_currency");
-        $leaf->setText(__('Import currencies <i>(ex. $5.00 to 5.00)</i>'));
+        $leaf = new BoolPropertyItem(
+            "recognize_currency",
+            __('Import currencies <i>(ex. $5.00 to 5.00)</i>')
+        );
         $generalOptions->addProperty($leaf);
 
         // add the main group to the root group
@@ -108,9 +95,11 @@ class ImportOds extends ImportPlugin
     /**
      * Handles the whole import logic
      *
+     * @param array &$sql_data 2-element array with sql data
+     *
      * @return void
      */
-    public function doImport()
+    public function doImport(&$sql_data = array())
     {
         global $db, $error, $timeout_passed, $finished;
 
@@ -151,7 +140,7 @@ class ImportOds extends ImportPlugin
          * result in increased performance without the need to
          * alter the code in any way. It's basically a freebee.
          */
-        $xml = simplexml_load_string($buffer, "SimpleXMLElement", LIBXML_COMPACT);
+        $xml = @simplexml_load_string($buffer, "SimpleXMLElement", LIBXML_COMPACT);
 
         unset($buffer);
 
@@ -384,13 +373,13 @@ class ImportOds extends ImportPlugin
         $create = null;
 
         /* Created and execute necessary SQL statements from data */
-        PMA_buildSQL($db_name, $tables, $analyses, $create, $options);
+        PMA_buildSQL($db_name, $tables, $analyses, $create, $options, $sql_data);
 
         unset($tables);
         unset($analyses);
 
         /* Commit any possible data in buffers */
-        PMA_importRunQuery();
+        PMA_importRunQuery('', '', $sql_data);
     }
 
     /**

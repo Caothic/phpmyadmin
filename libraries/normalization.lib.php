@@ -1,18 +1,13 @@
 <?php
-
 /* vim: set expandtab sw=4 ts=4 sts=4: */
 /**
  * set of functions used for normalization
  *
  * @package PhpMyAdmin
  */
-
 use PMA\libraries\Message;
 use PMA\libraries\Util;
-
-if (! defined('PHPMYADMIN')) {
-    exit;
-}
+use PMA\libraries\URL;
 
 /**
  * build the html for columns of $colTypeCategory category
@@ -47,7 +42,7 @@ function PMA_getHtmlForColumnsList(
             $type = $extracted_columnspec['type'];
         }
         if (empty($columnTypeList)
-            || in_array(/*overload*/mb_strtoupper($type), $columnTypeList)
+            || in_array(mb_strtoupper($type), $columnTypeList)
         ) {
             if ($listType == 'checkbox') {
                 $selectColHtml .= '<input type="checkbox" value="'
@@ -488,11 +483,11 @@ function PMA_createNewTablesFor2NF($partialDependencies, $tablesName, $table, $d
     foreach ($queries as $query) {
         if (!$GLOBALS['dbi']->tryQuery($query, $GLOBALS['userlink'])) {
             $message = Message::error(__('Error in processing!'));
-            $message->addMessage('<br /><br />');
             $message->addMessage(
                 Message::rawError(
                     $GLOBALS['dbi']->getError($GLOBALS['userlink'])
-                )
+                ),
+                '<br /><br />'
             );
             $error = true;
             break;
@@ -633,11 +628,11 @@ function PMA_createNewTablesFor3NF($newTables, $db)
     foreach ($queries as $query) {
         if (!$GLOBALS['dbi']->tryQuery($query, $GLOBALS['userlink'])) {
             $message = Message::error(__('Error in processing!'));
-            $message->addMessage('<br /><br />');
             $message->addMessage(
                 Message::rawError(
                     $GLOBALS['dbi']->getError($GLOBALS['userlink'])
-                )
+                ),
+                '<br /><br />'
             );
             $error = true;
             break;
@@ -698,11 +693,11 @@ function PMA_moveRepeatingGroup(
     foreach ($queries as $query) {
         if (!$GLOBALS['dbi']->tryQuery($query, $GLOBALS['userlink'])) {
             $message = Message::error(__('Error in processing!'));
-            $message->addMessage('<br /><br />');
             $message->addMessage(
                 Message::rawError(
                     $GLOBALS['dbi']->getError($GLOBALS['userlink'])
-                )
+                ),
+                '<br /><br />'
             );
             $error = true;
             break;
@@ -802,7 +797,7 @@ function PMA_getHtmlForNormalizetable()
         . 'name="normalize" '
         . 'id="normalizeTable" '
         . '>'
-        . PMA_URL_getHiddenInputs($GLOBALS['db'], $GLOBALS['table'])
+        . URL::getHiddenInputs($GLOBALS['db'], $GLOBALS['table'])
         . '<input type="hidden" name="step1" value="1">';
     $html_output .= '<fieldset>';
     $html_output .= '<legend>'

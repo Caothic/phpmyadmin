@@ -5,6 +5,7 @@
  *
  * @package PhpMyAdmin
  */
+use PMA\libraries\Response;
 use PMA\libraries\Tracker;
 
 /**
@@ -16,7 +17,7 @@ require_once './libraries/tracking.lib.php';
 require_once 'libraries/display_create_table.lib.php';
 
 //Get some js files needed for Ajax requests
-$response = PMA\libraries\Response::getInstance();
+$response = Response::getInstance();
 $header   = $response->getHeader();
 $scripts  = $header->getScripts();
 $scripts->addFile('jquery/jquery.tablesorter.js');
@@ -99,7 +100,7 @@ $data = Tracker::getTrackedData($_REQUEST['db'], '', '1');
 
 // No tables present and no log exist
 if ($num_tables == 0 && count($data['ddlog']) == 0) {
-    echo '<p>' . __('No tables found in database.') . '</p>' . "\n";
+    echo '<p>' , __('No tables found in database.') , '</p>' , "\n";
 
     if (empty($db_is_system_schema)) {
         echo PMA_getHtmlForCreateTable($db);
@@ -114,7 +115,7 @@ $cfgRelation = PMA_getRelationsParam();
 $all_tables_query = ' SELECT table_name, MAX(version) as version FROM ' .
     PMA\libraries\Util::backquote($cfgRelation['db']) . '.' .
     PMA\libraries\Util::backquote($cfgRelation['tracking']) .
-    ' WHERE db_name = \'' . PMA\libraries\Util::sqlAddSlashes($_REQUEST['db']) .
+    ' WHERE db_name = \'' . $GLOBALS['dbi']->escapeString($_REQUEST['db']) .
     '\' ' .
     ' GROUP BY table_name' .
     ' ORDER BY table_name ASC';

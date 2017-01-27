@@ -8,16 +8,15 @@
 
 use PMA\libraries\plugins\auth\AuthenticationConfig;
 
-require_once 'libraries/php-gettext/gettext.inc';
 require_once 'libraries/config.default.php';
-require_once 'libraries/js_escape.lib.php';
+require_once 'test/PMATestCase.php';
 
 /**
  * tests for PMA\libraries\plugins\auth\AuthenticationConfig class
  *
  * @package PhpMyAdmin-test
  */
-class AuthenticationConfigTest extends PHPUnit_Framework_TestCase
+class AuthenticationConfigTest extends PMATestCase
 {
     protected $object;
 
@@ -31,7 +30,6 @@ class AuthenticationConfigTest extends PHPUnit_Framework_TestCase
         $GLOBALS['PMA_Config'] = new PMA\libraries\Config();
         $GLOBALS['PMA_Config']->enableBc();
         $GLOBALS['server'] = 0;
-        $GLOBALS['cfg']['DefaultTabServer'] = 'welcome';
         $GLOBALS['token_provided'] = true;
         $GLOBALS['token_mismatch'] = false;
         $this->object = new AuthenticationConfig();
@@ -94,6 +92,7 @@ class AuthenticationConfigTest extends PHPUnit_Framework_TestCase
         $GLOBALS['error_handler'] = new PMA\libraries\ErrorHandler;
         $GLOBALS['cfg']['Servers'] = array(1);
         $GLOBALS['allowDeny_forbidden'] = false;
+        $GLOBALS['collation_connection'] = 'utf-8';
         if (!defined('PMA_USR_BROWSER_AGENT')) {
             define('PMA_USR_BROWSER_AGENT', 'chrome');
 
@@ -124,7 +123,7 @@ class AuthenticationConfigTest extends PHPUnit_Framework_TestCase
         );
 
         $this->assertContains(
-            '<strong>MySQL said: </strong><a href="./url.php?url=http%3A%2F%2F' .
+            '<strong>MySQL said: </strong><a href="./url.php?url=https%3A%2F%2F' .
             'dev.mysql.com%2Fdoc%2Frefman%2F5.7%2Fen%2Ferror-messages-server.html"' .
             ' target="mysql_doc">' .
             '<img src="themes/dot.gif" title="Documentation" alt="Documentation" ' .
@@ -139,7 +138,7 @@ class AuthenticationConfigTest extends PHPUnit_Framework_TestCase
 
         $this->assertContains(
             '<a href="index.php?server=0&amp;lang=en'
-            . '&amp;collation_connection=utf-8&amp;token=token" '
+            . '&amp;collation_connection=utf-8" '
             . 'class="button disableAjax">Retry to connect</a>',
             $html
         );

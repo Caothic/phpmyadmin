@@ -9,13 +9,11 @@
 namespace PMA\libraries\plugins\transformations\abs;
 
 use PMA\libraries\plugins\TransformationsPlugin;
+use PMA\libraries\Sanitize;
 
 if (!defined('PHPMYADMIN')) {
     exit;
 }
-
-/* For PMA_Transformation_globalHtmlReplace */
-require_once 'libraries/transformations.lib.php';
 
 /**
  * Provides common methods for all of the link transformations plugins.
@@ -33,7 +31,7 @@ abstract class TextLinkTransformationsPlugin extends TransformationsPlugin
     {
         return __(
             'Displays a link; the column contains the filename. The first option'
-            . ' is a URL prefix like "http://www.example.com/". The second option'
+            . ' is a URL prefix like "https://www.example.com/". The second option'
             . ' is a title for the link.'
         );
     }
@@ -49,24 +47,20 @@ abstract class TextLinkTransformationsPlugin extends TransformationsPlugin
      */
     public function applyTransformation($buffer, $options = array(), $meta = '')
     {
-
-        $append_part = (isset($options[2]) && $options[2]) ? '' : $buffer;
-
-        $transform_options = array(
-            'string' => '<a href="'
-                . (isset($options[0]) ? $options[0] : '') . $append_part
-                . '" title="'
-                . htmlspecialchars(isset($options[1]) ? $options[1] : '')
-                . '" target="_new">'
-                . htmlspecialchars(isset($options[1]) ? $options[1] : $buffer)
-                . '</a>',
-        );
-
-        return PMA_Transformation_globalHtmlReplace(
-            $buffer,
-            $transform_options
-        );
+        $url = (isset($options[0]) ? $options[0] : '') . ((isset($options[2]) && $options[2]) ? '' : $buffer);
+        /* Do not allow javascript links */
+        if (! Sanitize::checkLink($url, true, true)) {
+            return htmlspecialchars($url);
+        }
+        return '<a href="'
+            . htmlspecialchars($url)
+            . '" title="'
+            . htmlspecialchars(isset($options[1]) ? $options[1] : '')
+            . '" target="_blank" rel="noopener noreferrer">'
+            . htmlspecialchars(isset($options[1]) ? $options[1] : $buffer)
+            . '</a>';
     }
+
 
     /* ~~~~~~~~~~~~~~~~~~~~ Getters and Setters ~~~~~~~~~~~~~~~~~~~~ */
 

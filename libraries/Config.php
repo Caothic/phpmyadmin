@@ -7,12 +7,9 @@
  */
 namespace PMA\libraries;
 
-/**
- * Load vendor configuration.
- */
 use DirectoryIterator;
-
-require_once './libraries/vendor_config.php';
+use PMA\libraries\URL;
+use PMA\libraries\ThemeManager;
 
 /**
  * Indication for error handler (see end of this file).
@@ -69,11 +66,6 @@ class Config
     var $error_config_default_file = false;
 
     /**
-     * @var boolean
-     */
-    var $error_pma_uri = false;
-
-    /**
      * @var array
      */
     var $default_server = array();
@@ -101,8 +93,6 @@ class Config
         // other settings, independent from config file, comes in
         $this->checkSystem();
 
-        $this->isHttps();
-
         $this->base_settings = $this->settings;
     }
 
@@ -113,7 +103,7 @@ class Config
      */
     public function checkSystem()
     {
-        $this->set('PMA_VERSION', '4.6.0-dev');
+        $this->set('PMA_VERSION', '4.8.0-dev');
         /**
          * @deprecated
          */
@@ -123,7 +113,6 @@ class Config
          */
         $this->set('PMA_THEME_GENERATION', 2);
 
-        $this->checkPhpVersion();
         $this->checkWebServerOs();
         $this->checkWebServer();
         $this->checkGd2();
@@ -146,16 +135,9 @@ class Config
             $this->set('OBGzip', false);
         }
 
-        // disable output-buffering (if set to 'auto') for IE6, else enable it.
+        // enable output-buffering (if set to 'auto')
         if (strtolower($this->get('OBGzip')) == 'auto') {
-            if ($this->get('PMA_USR_BROWSER_AGENT') == 'IE'
-                && $this->get('PMA_USR_BROWSER_VER') >= 6
-                && $this->get('PMA_USR_BROWSER_VER') < 7
-            ) {
-                $this->set('OBGzip', false);
-            } else {
-                $this->set('OBGzip', true);
-            }
+            $this->set('OBGzip', true);
         }
     }
 
@@ -168,15 +150,15 @@ class Config
      */
     private function _setClientPlatform($user_agent)
     {
-        if (/*overload*/mb_strstr($user_agent, 'Win')) {
+        if (mb_strstr($user_agent, 'Win')) {
             $this->set('PMA_USR_OS', 'Win');
-        } elseif (/*overload*/mb_strstr($user_agent, 'Mac')) {
+        } elseif (mb_strstr($user_agent, 'Mac')) {
             $this->set('PMA_USR_OS', 'Mac');
-        } elseif (/*overload*/mb_strstr($user_agent, 'Linux')) {
+        } elseif (mb_strstr($user_agent, 'Linux')) {
             $this->set('PMA_USR_OS', 'Linux');
-        } elseif (/*overload*/mb_strstr($user_agent, 'Unix')) {
+        } elseif (mb_strstr($user_agent, 'Unix')) {
             $this->set('PMA_USR_OS', 'Unix');
-        } elseif (/*overload*/mb_strstr($user_agent, 'OS/2')) {
+        } elseif (mb_strstr($user_agent, 'OS/2')) {
             $this->set('PMA_USR_OS', 'OS/2');
         } else {
             $this->set('PMA_USR_OS', 'Other');
@@ -206,20 +188,20 @@ class Config
         // (must check everything else before Mozilla)
 
         $is_mozilla = preg_match(
-            '@Mozilla/([0-9].[0-9]{1,2})@',
+            '@Mozilla/([0-9]\.[0-9]{1,2})@',
             $HTTP_USER_AGENT,
             $mozilla_version
         );
 
         if (preg_match(
-            '@Opera(/| )([0-9].[0-9]{1,2})@',
+            '@Opera(/| )([0-9]\.[0-9]{1,2})@',
             $HTTP_USER_AGENT,
             $log_version
         )) {
             $this->set('PMA_USR_BROWSER_VER', $log_version[2]);
             $this->set('PMA_USR_BROWSER_AGENT', 'OPERA');
         } elseif (preg_match(
-            '@(MS)?IE ([0-9]{1,2}.[0-9]{1,2})@',
+            '@(MS)?IE ([0-9]{1,2}\.[0-9]{1,2})@',
             $HTTP_USER_AGENT,
             $log_version
         )) {
@@ -233,7 +215,7 @@ class Config
             $this->set('PMA_USR_BROWSER_VER', intval($log_version[1]) + 4);
             $this->set('PMA_USR_BROWSER_AGENT', 'IE');
         } elseif (preg_match(
-            '@OmniWeb/([0-9].[0-9]{1,2})@',
+            '@OmniWeb/([0-9]{1,3})@',
             $HTTP_USER_AGENT,
             $log_version
         )) {
@@ -271,14 +253,14 @@ class Config
             );
             $this->set('PMA_USR_BROWSER_AGENT', 'SAFARI');
             // Firefox
-        } elseif (! /*overload*/mb_strstr($HTTP_USER_AGENT, 'compatible')
+        } elseif (! mb_strstr($HTTP_USER_AGENT, 'compatible')
             && preg_match('@Firefox/([\w.]+)@', $HTTP_USER_AGENT, $log_version)
         ) {
             $this->set(
                 'PMA_USR_BROWSER_VER', $log_version[1]
             );
             $this->set('PMA_USR_BROWSER_AGENT', 'FIREFOX');
-        } elseif (preg_match('@rv:1.9(.*)Gecko@', $HTTP_USER_AGENT)) {
+        } elseif (preg_match('@rv:1\.9(.*)Gecko@', $HTTP_USER_AGENT)) {
             $this->set('PMA_USR_BROWSER_VER', '1.9');
             $this->set('PMA_USR_BROWSER_AGENT', 'GECKO');
         } elseif ($is_mozilla) {
@@ -314,7 +296,7 @@ class Config
 
         if (@function_exists('gd_info')) {
             $gd_nfo = gd_info();
-            if (/*overload*/mb_strstr($gd_nfo["GD Version"], '2.')) {
+            if (mb_strstr($gd_nfo["GD Version"], '2.')) {
                 $this->set('PMA_IS_GD2', 1);
             } else {
                 $this->set('PMA_IS_GD2', 0);
@@ -362,42 +344,6 @@ class Config
                 $this->set('PMA_IS_WINDOWS', 1);
             }
         }
-    }
-
-    /**
-     * detects PHP version
-     *
-     * @return void
-     */
-    public function checkPhpVersion()
-    {
-        $match = array();
-        if (! preg_match(
-            '@([0-9]{1,2}).([0-9]{1,2}).([0-9]{1,2})@',
-            phpversion(),
-            $match
-        )) {
-            preg_match(
-                '@([0-9]{1,2}).([0-9]{1,2})@',
-                phpversion(),
-                $match
-            );
-        }
-        if (isset($match) && ! empty($match[1])) {
-            if (! isset($match[2])) {
-                $match[2] = 0;
-            }
-            if (! isset($match[3])) {
-                $match[3] = 0;
-            }
-            $this->set(
-                'PMA_PHP_INT_VERSION',
-                (int) sprintf('%d%02d%02d', $match[1], $match[2], $match[3])
-            );
-        } else {
-            $this->set('PMA_PHP_INT_VERSION', 0);
-        }
-        $this->set('PMA_PHP_STR_VERSION', phpversion());
     }
 
     /**
@@ -449,10 +395,11 @@ class Config
 
         $branch = false;
         // are we on any branch?
-        if (/*overload*/mb_strstr($ref_head, '/')) {
-            $ref_head = /*overload*/mb_substr(trim($ref_head), 5);
+        if (strstr($ref_head, '/')) {
+            // remove ref: prefix
+            $ref_head = substr(trim($ref_head), 5);
             if (substr($ref_head, 0, 11) === 'refs/heads/') {
-                $branch = /*overload*/mb_substr($ref_head, 11);
+                $branch = substr($ref_head, 11);
             } else {
                 $branch = basename($ref_head);
             }
@@ -499,7 +446,9 @@ class Config
         }
 
         $commit = false;
-        if (isset($_SESSION['PMA_VERSION_COMMITDATA_' . $hash])) {
+        if (! preg_match('/^[0-9a-f]{40}$/i', $hash)) {
+            $commit = false;
+        } elseif (isset($_SESSION['PMA_VERSION_COMMITDATA_' . $hash])) {
             $commit = $_SESSION['PMA_VERSION_COMMITDATA_' . $hash];
         } elseif (function_exists('gzuncompress')) {
             $git_file_name = $git_folder . '/objects/'
@@ -659,7 +608,7 @@ class Config
         } else {
             $link = 'https://api.github.com/repos/phpmyadmin/phpmyadmin/git/commits/'
                 . $hash;
-            $is_found = $this->checkHTTP($link, ! $commit);
+            $is_found = Util::httpRequest($link, "GET");
             switch($is_found) {
             case false:
                 $is_remote_commit = false;
@@ -688,7 +637,7 @@ class Config
             } else {
                 $link = 'https://api.github.com/repos/phpmyadmin/phpmyadmin'
                     . '/git/trees/' . $branch;
-                $is_found = $this->checkHTTP($link);
+                $is_found = Util::httpRequest($link, "GET", true);
                 switch($is_found) {
                 case true:
                     $is_remote_branch = true;
@@ -729,7 +678,7 @@ class Config
             } while ($dataline != '');
             $message = trim(implode(' ', $commit));
 
-        } elseif (isset($commit_json)) {
+        } elseif (isset($commit_json) && isset($commit_json->author) && isset($commit_json->committer)) {
             $author = array(
                 'name' => $commit_json->author->name,
                 'email' => $commit_json->author->email,
@@ -754,57 +703,6 @@ class Config
     }
 
     /**
-     * Checks if given URL is 200 or 404, optionally returns data
-     *
-     * @param string  $link     the URL to check
-     * @param boolean $get_body whether to retrieve body of document
-     *
-     * @return string|boolean test result or data
-     */
-    public function checkHTTP($link, $get_body = false)
-    {
-        if (! function_exists('curl_init')) {
-            return null;
-        }
-        $handle = curl_init($link);
-        if ($handle === false) {
-            return null;
-        }
-        Util::configureCurl($handle);
-        curl_setopt($handle, CURLOPT_FOLLOWLOCATION, 0);
-        curl_setopt($handle, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($handle, CURLOPT_SSL_VERIFYHOST, 0);
-        curl_setopt($handle, CURLOPT_SSL_VERIFYPEER, 0);
-        curl_setopt($handle, CURLOPT_CONNECTTIMEOUT, 5);
-        curl_setopt($handle, CURLOPT_TIMEOUT, 5);
-        curl_setopt($handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-        if (! defined('TESTSUITE')) {
-            session_write_close();
-        }
-        $data = @curl_exec($handle);
-        if (! defined('TESTSUITE')) {
-            ini_set('session.use_only_cookies', '0');
-            ini_set('session.use_cookies', '0');
-            ini_set('session.use_trans_sid', '0');
-            ini_set('session.cache_limiter', 'nocache');
-            session_start();
-        }
-        if ($data === false) {
-            return null;
-        }
-        $http_status = curl_getinfo($handle, CURLINFO_HTTP_CODE);
-
-        if ($http_status == 200) {
-            return $get_body ? $data : true;
-        }
-
-        if ($http_status == 404) {
-            return false;
-        }
-        return null;
-    }
-
-    /**
      * loads default values from default source
      *
      * @return boolean     success
@@ -812,11 +710,22 @@ class Config
     public function loadDefaults()
     {
         $cfg = array();
-        if (! file_exists($this->default_source)) {
+        if (! @file_exists($this->default_source)) {
             $this->error_config_default_file = true;
             return false;
         }
-        include $this->default_source;
+        $old_error_reporting = error_reporting(0);
+        ob_start();
+        $GLOBALS['pma_config_loading'] = true;
+        $eval_result = include $this->default_source;
+        $GLOBALS['pma_config_loading'] = false;
+        ob_end_clean();
+        error_reporting($old_error_reporting);
+
+        if ($eval_result === false) {
+            $this->error_config_default_file = true;
+            return false;
+        }
 
         $this->default_source_mtime = filemtime($this->default_source);
 
@@ -824,7 +733,7 @@ class Config
         unset($cfg['Servers']);
 
         $this->default = $cfg;
-        $this->settings = PMA_arrayMergeRecursive($this->settings, $cfg);
+        $this->settings = array_replace_recursive($this->settings, $cfg);
 
         $this->error_config_default_file = false;
 
@@ -906,8 +815,7 @@ class Config
             );
         }
 
-        $this->settings = PMA_arrayMergeRecursive($this->settings, $cfg);
-        $this->checkPmaAbsoluteUri();
+        $this->settings = array_replace_recursive($this->settings, $cfg);
 
         // Handling of the collation must be done after merging of $cfg
         // (from config.inc.php) so that $cfg['DefaultConnectionCollation']
@@ -1011,8 +919,8 @@ class Config
             $org_fontsize = $this->settings['fontsize'];
         }
         // load config array
-        $this->settings = PMA_arrayMergeRecursive($this->settings, $config_data);
-        $GLOBALS['cfg'] = PMA_arrayMergeRecursive($GLOBALS['cfg'], $config_data);
+        $this->settings = array_replace_recursive($this->settings, $config_data);
+        $GLOBALS['cfg'] = array_replace_recursive($GLOBALS['cfg'], $config_data);
         if (defined('PMA_MINIMUM_COMMON')) {
             return;
         }
@@ -1023,7 +931,7 @@ class Config
 
         // save theme
         /** @var ThemeManager $tmanager */
-        $tmanager = $_SESSION['PMA_Theme_Manager'];
+        $tmanager = ThemeManager::getInstance();
         if ($tmanager->getThemeCookie() || isset($_REQUEST['set_theme'])) {
             if ((! isset($config_data['ThemeDefault'])
                 && $tmanager->theme->getId() != 'original')
@@ -1068,8 +976,14 @@ class Config
             }
         } else {
             // read language from settings
-            if (isset($config_data['lang']) && PMA_langSet($config_data['lang'])) {
-                $this->setCookie('pma_lang', $GLOBALS['lang']);
+            if (isset($config_data['lang'])) {
+                $language = LanguageManager::getInstance()->getLanguage(
+                    $config_data['lang']
+                );
+                if ($language !== false) {
+                    $language->activate();
+                    $this->setCookie('pma_lang', $language->getCode());
+                }
             }
         }
 
@@ -1163,12 +1077,12 @@ class Config
             return false;
         }
 
-        if (! file_exists($this->getSource())) {
+        if (! @file_exists($this->getSource())) {
             $this->source_mtime = 0;
             return false;
         }
 
-        if (! is_readable($this->getSource())) {
+        if (! @is_readable($this->getSource())) {
             // manually check if file is readable
             // might be bug #3059806 Supporting running from CIFS/Samba shares
 
@@ -1176,7 +1090,7 @@ class Config
             $handle = @fopen($this->getSource(), 'r');
             if ($handle !== false) {
                 $contents = @fread($handle, 1); // reading 1 byte is enough to test
-                @fclose($handle);
+                fclose($handle);
             }
             if ($contents === false) {
                 $this->source_mtime = 0;
@@ -1219,6 +1133,36 @@ class Config
                     );
                 }
             }
+        }
+    }
+
+    /**
+     * Checks for errors
+     * (must be called after config.inc.php has been merged)
+     *
+     * @return void
+     */
+    public function checkErrors()
+    {
+        if ($this->error_config_default_file) {
+            PMA_fatalError(
+                sprintf(
+                    __('Could not load default configuration from: %1$s'),
+                    $this->default_source
+                )
+            );
+        }
+
+        if ($this->error_config_file) {
+            $error = '[strong]' . __('Failed to read configuration file!') . '[/strong]'
+                . '[br][br]'
+                . __(
+                    'This usually means there is a syntax error in it, '
+                    . 'please check any errors shown below.'
+                )
+                . '[br][br]'
+                . '[conferr]';
+            trigger_error($error, E_USER_ERROR);
         }
     }
 
@@ -1293,184 +1237,6 @@ class Config
     }
 
     /**
-     * $cfg['PmaAbsoluteUri'] is a required directive else cookies won't be
-     * set properly and, depending on browsers, inserting or updating a
-     * record might fail
-     *
-     * @return void
-     */
-    public function checkPmaAbsoluteUri()
-    {
-        // Setup a default value to let the people and lazy sysadmins work anyway,
-        // they'll get an error if the autodetect code doesn't work
-        $pma_absolute_uri = $this->get('PmaAbsoluteUri');
-        $is_https = $this->detectHttps();
-
-        if (/*overload*/mb_strlen($pma_absolute_uri) < 5) {
-            $url = array();
-
-            // If we don't have scheme, we didn't have full URL so we need to
-            // dig deeper
-            if (empty($url['scheme'])) {
-                // Scheme
-                if ($is_https) {
-                    $url['scheme'] = 'https';
-                } else {
-                    $url['scheme'] = 'http';
-                }
-
-                // Host and port
-                if (PMA_getenv('HTTP_HOST')) {
-                    // Prepend the scheme before using parse_url() since this
-                    // is not part of the RFC2616 Host request-header
-                    $parsed_url = parse_url(
-                        $url['scheme'] . '://' . PMA_getenv('HTTP_HOST')
-                    );
-                    if (!empty($parsed_url['host'])) {
-                        $url = $parsed_url;
-                    } else {
-                        $url['host'] = PMA_getenv('HTTP_HOST');
-                    }
-                } elseif (PMA_getenv('SERVER_NAME')) {
-                    $url['host'] = PMA_getenv('SERVER_NAME');
-                } else {
-                    $this->error_pma_uri = true;
-                    return;
-                }
-
-                // If we didn't set port yet...
-                if (empty($url['port']) && PMA_getenv('SERVER_PORT')) {
-                    $url['port'] = PMA_getenv('SERVER_PORT');
-                }
-
-                // And finally the path could be already set from REQUEST_URI
-                if (empty($url['path'])) {
-                    // we got a case with nginx + php-fpm where PHP_SELF
-                    // was not set, so PMA_PHP_SELF was not set as well
-                    if (isset($GLOBALS['PMA_PHP_SELF'])) {
-                        $path = parse_url($GLOBALS['PMA_PHP_SELF']);
-                    } else {
-                        $path = parse_url(PMA_getenv('REQUEST_URI'));
-                    }
-                    $url['path'] = $path['path'];
-                }
-            }
-
-            // Make url from parts we have
-            $pma_absolute_uri = $url['scheme'] . '://';
-            // Was there user information?
-            if (!empty($url['user'])) {
-                $pma_absolute_uri .= $url['user'];
-                if (!empty($url['pass'])) {
-                    $pma_absolute_uri .= ':' . $url['pass'];
-                }
-                $pma_absolute_uri .= '@';
-            }
-            // Add hostname
-            $pma_absolute_uri .= $url['host'];
-            // Add port, if it not the default one
-            // (or 80 for https which is most likely a bug)
-            if (! empty($url['port'])
-                && (($url['scheme'] == 'http' && $url['port'] != 80)
-                || ($url['scheme'] == 'https' && $url['port'] != 80)
-                || ($url['scheme'] == 'https' && $url['port'] != 443))
-            ) {
-                $pma_absolute_uri .= ':' . $url['port'];
-            }
-            // And finally path, without script name, the 'a' is there not to
-            // strip our directory, when path is only /pmadir/ without filename.
-            // Backslashes returned by Windows have to be changed.
-            // Only replace backslashes by forward slashes if on Windows,
-            // as the backslash could be valid on a non-Windows system.
-            $this->checkWebServerOs();
-            if ($this->get('PMA_IS_WINDOWS') == 1) {
-                $path = str_replace("\\", "/", dirname($url['path'] . 'a'));
-            } else {
-                $path = dirname($url['path'] . 'a');
-            }
-
-            // To work correctly within javascript
-            if (defined('PMA_PATH_TO_BASEDIR') && PMA_PATH_TO_BASEDIR == '../') {
-                if ($this->get('PMA_IS_WINDOWS') == 1) {
-                    $path = str_replace("\\", "/", dirname($path));
-                } else {
-                    $path = dirname($path);
-                }
-            }
-
-            // PHP's dirname function would have returned a dot
-            // when $path contains no slash
-            if ($path == '.') {
-                $path = '';
-            }
-            // in vhost situations, there could be already an ending slash
-            if (/*overload*/mb_substr($path, -1) != '/') {
-                $path .= '/';
-            }
-            $pma_absolute_uri .= $path;
-
-            // This is to handle the case of a reverse proxy
-            if ($this->get('ForceSSL')) {
-                $this->set('PmaAbsoluteUri', $pma_absolute_uri);
-                $pma_absolute_uri = $this->getSSLUri();
-                $this->isHttps();
-            }
-
-            // We used to display a warning if PmaAbsoluteUri wasn't set, but now
-            // the autodetect code works well enough that we don't display the
-            // warning at all. The user can still set PmaAbsoluteUri manually.
-
-        } else {
-            // The URI is specified, however users do often specify this
-            // wrongly, so we try to fix this.
-
-            // Adds a trailing slash et the end of the phpMyAdmin uri if it
-            // does not exist.
-            if (/*overload*/mb_substr($pma_absolute_uri, -1) != '/') {
-                $pma_absolute_uri .= '/';
-            }
-
-            // If URI doesn't start with http:// or https://, we will add
-            // this.
-            if (/*overload*/mb_substr($pma_absolute_uri, 0, 7) != 'http://'
-                && /*overload*/mb_substr($pma_absolute_uri, 0, 8) != 'https://'
-            ) {
-                $pma_absolute_uri
-                    = ($is_https ? 'https' : 'http')
-                    . ':'
-                    . (
-                        /*overload*/mb_substr($pma_absolute_uri, 0, 2) == '//'
-                        ? ''
-                        : '//'
-                    )
-                    . $pma_absolute_uri;
-            }
-        }
-        $this->set('PmaAbsoluteUri', $pma_absolute_uri);
-    }
-
-    /**
-     * Converts currently used PmaAbsoluteUri to SSL based variant.
-     *
-     * @return String witch adjusted URI
-     */
-    public function getSSLUri()
-    {
-        // grab current URL
-        $url = $this->get('PmaAbsoluteUri');
-        // Parse current URL
-        $parsed = parse_url($url);
-        // In case parsing has failed do stupid string replacement
-        if ($parsed === false) {
-            // Replace http protocol
-            return preg_replace('@^http:@', 'https:', $url);
-        }
-
-        // Reconstruct URL using parsed parts
-        return 'https://' . $parsed['host'] . ':443' . $parsed['path'];
-    }
-
-    /**
      * Sets collation_connection based on user preference. First is checked
      * value from request, then cookies with fallback to default.
      *
@@ -1484,9 +1250,13 @@ class Config
     public function checkCollationConnection()
     {
         if (! empty($_REQUEST['collation_connection'])) {
-            $collation = strip_tags($_REQUEST['collation_connection']);
+            $collation = htmlspecialchars(
+                strip_tags($_REQUEST['collation_connection'])
+            );
         } elseif (! empty($_COOKIE['pma_collation_connection'])) {
-            $collation = strip_tags($_COOKIE['pma_collation_connection']);
+            $collation = htmlspecialchars(
+                strip_tags($_COOKIE['pma_collation_connection'])
+            );
         } else {
             $collation = $this->get('DefaultConnectionCollation');
         }
@@ -1543,7 +1313,7 @@ class Config
 
     /**
      * Maximum upload size as limited by PHP
-     * Used with permission from Moodle (http://moodle.org) by Martin Dougiamas
+     * Used with permission from Moodle (https://moodle.org/) by Martin Dougiamas
      *
      * this section generates $max_upload_size in bytes
      *
@@ -1568,9 +1338,7 @@ class Config
     /**
      * Checks if protocol is https
      *
-     * This function checks if the https protocol is used in the PmaAbsoluteUri
-     * configuration setting, as opposed to detectHttps() which checks if the
-     * https protocol is used on the active connection.
+     * This function checks if the https protocol on the active connection.
      *
      * @return bool
      */
@@ -1581,9 +1349,27 @@ class Config
             return $this->get('is_https');
         }
 
-        $url = parse_url($this->get('PmaAbsoluteUri'));
+        $url = $this->get('PmaAbsoluteUri');
 
-        $is_https = (isset($url['scheme']) && $url['scheme'] == 'https');
+        $is_https = false;
+        if (! empty($url) && parse_url($url, PHP_URL_SCHEME) === 'https') {
+            $is_https = true;
+        } elseif (strtolower(PMA_getenv('HTTP_SCHEME')) == 'https') {
+            $is_https = true;
+        } elseif (strtolower(PMA_getenv('HTTPS')) == 'on') {
+            $is_https = true;
+        } elseif (substr(strtolower(PMA_getenv('REQUEST_URI')), 0, 6) == 'https:') {
+            $is_https = true;
+        } elseif (strtolower(PMA_getenv('HTTP_HTTPS_FROM_LB')) == 'on') {
+            // A10 Networks load balancer
+            $is_https = true;
+        } elseif (strtolower(PMA_getenv('HTTP_FRONT_END_HTTPS')) == 'on') {
+            $is_https = true;
+        } elseif (strtolower(PMA_getenv('HTTP_X_FORWARDED_PROTO')) == 'https') {
+            $is_https = true;
+        } elseif (PMA_getenv('SERVER_PORT') == 443) {
+            $is_https = true;
+        }
 
         $this->set('is_https', $is_https);
 
@@ -1591,81 +1377,11 @@ class Config
     }
 
     /**
-     * Detects whether https appears to be used.
-     *
-     * This function checks if the https protocol is used in the current connection
-     * with the webserver, based on environment variables.
-     * Please note that this just detects what we see, so
-     * it completely ignores things like reverse proxies.
-     *
-     * @return bool
-     */
-    public function detectHttps()
-    {
-        $url = array();
-
-        // At first we try to parse REQUEST_URI, it might contain full URL,
-        if (PMA_getenv('REQUEST_URI')) {
-            // produces E_WARNING if it cannot get parsed, e.g. '/foobar:/'
-            $url = @parse_url(PMA_getenv('REQUEST_URI'));
-            if ($url === false) {
-                $url = array();
-            }
-        }
-
-        // If we don't have scheme, we didn't have full URL so we need to
-        // dig deeper
-        if (empty($url['scheme'])) {
-            // Scheme
-            if (PMA_getenv('HTTP_SCHEME')) {
-                $url['scheme'] = PMA_getenv('HTTP_SCHEME');
-            } elseif (PMA_getenv('HTTPS')
-                && strtolower(PMA_getenv('HTTPS')) == 'on'
-            ) {
-                $url['scheme'] = 'https';
-                // A10 Networks load balancer:
-            } elseif (PMA_getenv('HTTP_HTTPS_FROM_LB')
-                && strtolower(PMA_getenv('HTTP_HTTPS_FROM_LB')) == 'on'
-            ) {
-                $url['scheme'] = 'https';
-            } elseif (PMA_getenv('HTTP_X_FORWARDED_PROTO')) {
-                $url['scheme'] = /*overload*/mb_strtolower(
-                    PMA_getenv('HTTP_X_FORWARDED_PROTO')
-                );
-            } elseif (PMA_getenv('HTTP_FRONT_END_HTTPS')
-                && strtolower(PMA_getenv('HTTP_FRONT_END_HTTPS')) == 'on'
-            ) {
-                $url['scheme'] = 'https';
-            } else {
-                $url['scheme'] = 'http';
-            }
-        }
-
-        if (isset($url['scheme']) && $url['scheme'] == 'https') {
-            $is_https = true;
-        } else {
-            $is_https = false;
-        }
-
-        return $is_https;
-    }
-
-    /**
-     * detect correct cookie path
-     *
-     * @return void
-     */
-    public function checkCookiePath()
-    {
-        $this->set('cookie_path', $this->getCookiePath());
-    }
-
-    /**
-     * Get cookie path
+     * Get phpMyAdmin root path
      *
      * @return string
      */
-    public function getCookiePath()
+    public function getRootPath()
     {
         static $cookie_path = null;
 
@@ -1673,11 +1389,38 @@ class Config
             return $cookie_path;
         }
 
-        $parsed_url = parse_url($this->get('PmaAbsoluteUri'));
+        $url = $this->get('PmaAbsoluteUri');
 
-        $cookie_path   = $parsed_url['path'];
+        if (! empty($url)) {
+            $path = parse_url($url, PHP_URL_PATH);
+            if (! empty($path)) {
+                if (substr($path, -1) != '/') {
+                    return $path . '/';
+                }
+                return $path;
+            }
+        }
 
-        return $cookie_path;
+        $parsed_url = parse_url($GLOBALS['PMA_PHP_SELF']);
+
+        $parts = explode(
+            '/',
+            rtrim(str_replace('\\', '/', $parsed_url['path']), '/')
+        );
+
+        /* Remove filename */
+        if (substr($parts[count($parts) - 1], -4) == '.php') {
+            $parts = array_slice($parts, 0, count($parts) - 1);
+        }
+
+        /* Remove extra path from javascript calls */
+        if (defined('PMA_PATH_TO_BASEDIR')) {
+            $parts = array_slice($parts, 0, count($parts) - 1);
+        }
+
+        $parts[] = '';
+
+        return implode('/', $parts);
     }
 
     /**
@@ -1693,17 +1436,13 @@ class Config
         $GLOBALS['collation_connection'] = $this->get('collation_connection');
         $GLOBALS['is_upload']       = $this->get('enable_upload');
         $GLOBALS['max_upload_size'] = $this->get('max_upload_size');
-        $GLOBALS['cookie_path']     = $this->get('cookie_path');
         $GLOBALS['is_https']        = $this->get('is_https');
 
         $defines = array(
             'PMA_VERSION',
             'PMA_THEME_VERSION',
             'PMA_THEME_GENERATION',
-            'PMA_PHP_STR_VERSION',
-            'PMA_PHP_INT_VERSION',
             'PMA_IS_WINDOWS',
-            'PMA_IS_IIS',
             'PMA_IS_GD2',
             'PMA_USR_OS',
             'PMA_USR_BROWSER_VER',
@@ -1821,7 +1560,7 @@ class Config
     {
         return '<form name="form_fontsize_selection" id="form_fontsize_selection"'
             . ' method="get" action="index.php" class="disableAjax">' . "\n"
-            . PMA_URL_getHiddenInputs() . "\n"
+            . URL::getHiddenInputs() . "\n"
             . Config::getFontsizeSelection() . "\n"
             . '</form>';
     }
@@ -1845,7 +1584,7 @@ class Config
             $cookie,
             '',
             time() - 3600,
-            $this->getCookiePath(),
+            $this->getRootPath(),
             '',
             $this->isHttps()
         );
@@ -1866,7 +1605,7 @@ class Config
     public function setCookie($cookie, $value, $default = null,
         $validity = null, $httponly = true
     ) {
-        if (/*overload*/mb_strlen($value) && null !== $default && $value === $default
+        if (strlen($value) > 0 && null !== $default && $value === $default
         ) {
             // default value is used
             if (isset($_COOKIE[$cookie])) {
@@ -1876,7 +1615,7 @@ class Config
             return false;
         }
 
-        if (!/*overload*/mb_strlen($value) && isset($_COOKIE[$cookie])) {
+        if (strlen($value) === 0 && isset($_COOKIE[$cookie])) {
             // remove cookie, value is empty
             return $this->removeCookie($cookie);
         }
@@ -1885,8 +1624,10 @@ class Config
             // set cookie with new value
             /* Calculate cookie validity */
             if ($validity === null) {
+                /* Valid for one month */
                 $validity = time() + 2592000;
             } elseif ($validity == 0) {
+                /* Valid for session */
                 $validity = 0;
             } else {
                 $validity = time() + $validity;
@@ -1899,7 +1640,7 @@ class Config
                 $cookie,
                 $value,
                 $validity,
-                $this->getCookiePath(),
+                $this->getRootPath(),
                 '',
                 $this->isHttps(),
                 $httponly
@@ -1940,6 +1681,48 @@ class Config
                 $error['message']
             )
         );
+    }
+
+    /**
+     * Wrapper for footer/header rendering
+     *
+     * @param string $filename File to check and render
+     * @param string $id       Div ID
+     *
+     * @return string
+     */
+    private static function _renderCustom($filename, $id)
+    {
+        $retval = '';
+        if (file_exists($filename)) {
+            $retval .= '<div id="' . $id . '">';
+            ob_start();
+            include $filename;
+            $retval .= ob_get_contents();
+            ob_end_clean();
+            $retval .= '</div>';
+        }
+        return $retval;
+    }
+
+    /**
+     * Renders user configured footer
+     *
+     * @return string
+     */
+    public static function renderFooter()
+    {
+        return self::_renderCustom(CUSTOM_FOOTER_FILE, 'pma_footer');
+    }
+
+    /**
+     * Renders user configured footer
+     *
+     * @return string
+     */
+    public static function renderHeader()
+    {
+        return self::_renderCustom(CUSTOM_HEADER_FILE, 'pma_header');
     }
 }
 

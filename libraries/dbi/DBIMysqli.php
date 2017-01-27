@@ -35,7 +35,7 @@ if (! defined('MYSQLI_BINARY_FLAG')) {
 }
 
 /**
- * @see http://bugs.php.net/36007
+ * @see https://bugs.php.net/36007
  */
 if (! defined('MYSQLI_TYPE_NEWDECIMAL')) {
     define('MYSQLI_TYPE_NEWDECIMAL', 246);
@@ -43,7 +43,9 @@ if (! defined('MYSQLI_TYPE_NEWDECIMAL')) {
 if (! defined('MYSQLI_TYPE_BIT')) {
     define('MYSQLI_TYPE_BIT', 16);
 }
-
+if (! defined('MYSQLI_TYPE_JSON')) {
+    define('MYSQLI_TYPE_JSON', 245);
+}
 
 
 /* vim: set expandtab sw=4 ts=4 sts=4: */
@@ -56,79 +58,17 @@ if (! defined('MYSQLI_TYPE_BIT')) {
 class DBIMysqli implements DBIExtension
 {
     /**
-     * Helper function for connecting to the database server
-     *
-     * @param mysqli $link          connection link
-     * @param string $host          mysql hostname
-     * @param string $user          mysql user name
-     * @param string $password      mysql user password
-     * @param string $dbname        database name
-     * @param int    $server_port   server port
-     * @param string $server_socket server socket
-     * @param int    $client_flags  client flags of connection
-     * @param bool   $persistent    whether to use persistent connection
-     *
-     * @return bool
-     */
-    private function _realConnect(
-        $link, $host, $user, $password, $dbname, $server_port,
-        $server_socket, $client_flags = null, $persistent = false
-    ) {
-        global $cfg;
-
-        // mysqli persistent connections
-        if ($cfg['PersistentConnections'] || $persistent) {
-            $host = 'p:' . $host;
-        }
-
-        if ($client_flags === null) {
-            return @mysqli_real_connect(
-                $link,
-                $host,
-                $user,
-                $password,
-                $dbname,
-                $server_port,
-                $server_socket
-            );
-        } else {
-            return @mysqli_real_connect(
-                $link,
-                $host,
-                $user,
-                $password,
-                $dbname,
-                $server_port,
-                $server_socket,
-                $client_flags
-            );
-        }
-    }
-
-    /**
      * connects to the database server
      *
-     * @param string $user                 mysql user name
-     * @param string $password             mysql user password
-     * @param bool   $is_controluser       whether this is a control user connection
-     * @param array  $server               host/port/socket/persistent
-     * @param bool   $auxiliary_connection (when true, don't go back to login if
-     *                                     connection fails)
+     * @param string $user     mysql user name
+     * @param string $password mysql user password
+     * @param array  $server   host/port/socket/persistent
      *
      * @return mixed false on error or a mysqli object on success
      */
     public function connect(
-        $user, $password, $is_controluser = false, $server = null,
-        $auxiliary_connection = false
+        $user, $password, $server
     ) {
-        global $cfg;
-
-        $server_port = $GLOBALS['dbi']->getServerPort($server);
-        if ($server_port === null) {
-            $server_port = 0;
-        }
-        $server_socket = $GLOBALS['dbi']->getServerSocket($server);
-
         if ($server) {
             $server['host'] = (empty($server['host']))
                 ? 'localhost'
@@ -139,69 +79,70 @@ class DBIMysqli implements DBIExtension
 
         $link = mysqli_init();
 
-        mysqli_options($link, MYSQLI_OPT_LOCAL_INFILE, true);
+        if (defined('PMA_ENABLE_LDI')) {
+            mysqli_options($link, MYSQLI_OPT_LOCAL_INFILE, true);
+        } else {
+            mysqli_options($link, MYSQLI_OPT_LOCAL_INFILE, false);
+        }
 
         $client_flags = 0;
 
         /* Optionally compress connection */
-        if ($cfg['Server']['compress'] && defined('MYSQLI_CLIENT_COMPRESS')) {
+        if ($server['compress'] && defined('MYSQLI_CLIENT_COMPRESS')) {
             $client_flags |= MYSQLI_CLIENT_COMPRESS;
         }
 
         /* Optionally enable SSL */
-        if ($cfg['Server']['ssl'] && defined('MYSQLI_CLIENT_SSL')) {
-            mysqli_ssl_set(
-                $link,
-                $cfg['Server']['ssl_key'],
-                $cfg['Server']['ssl_cert'],
-                $cfg['Server']['ssl_ca'],
-                $cfg['Server']['ssl_ca_path'],
-                $cfg['Server']['ssl_ciphers']
-            );
+        if ($server['ssl']) {
             $client_flags |= MYSQLI_CLIENT_SSL;
-        }
-
-        if (! $server) {
-            $return_value = @$this->_realConnect(
-                $link,
-                $cfg['Server']['host'],
-                $user,
-                $password,
-                false,
-                $server_port,
-                $server_socket,
-                $client_flags
-            );
-            // Retry with empty password if we're allowed to
-            if ($return_value == false
-                && isset($cfg['Server']['nopassword'])
-                && $cfg['Server']['nopassword']
-                && ! $is_controluser
+            if (! is_null($server['ssl_key']) ||
+                ! is_null($server['ssl_cert']) ||
+                ! is_null($server['ssl_ca']) ||
+                ! is_null($server['ssl_ca_paths']) ||
+                ! is_null($server['ssl_ciphers'])
             ) {
-                $return_value = @$this->_realConnect(
+                mysqli_ssl_set(
                     $link,
-                    $cfg['Server']['host'],
-                    $user,
-                    '',
-                    false,
-                    $server_port,
-                    $server_socket,
-                    $client_flags
+                    $server['ssl_key'],
+                    $server['ssl_cert'],
+                    $server['ssl_ca'],
+                    $server['ssl_ca_path'],
+                    $server['ssl_ciphers']
                 );
             }
-        } else {
-            $return_value = @$this->_realConnect(
-                $link,
-                $server['host'],
-                $user,
-                $password,
-                false,
-                $server_port,
-                $server_socket
-            );
+            /*
+             * disables SSL certificate validation on mysqlnd for MySQL 5.6 or later
+             * @link https://bugs.php.net/bug.php?id=68344
+             * @link https://github.com/phpmyadmin/phpmyadmin/pull/11838
+             */
+            if (! $server['ssl_verify']) {
+                mysqli_options(
+                    $link,
+                    MYSQLI_OPT_SSL_VERIFY_SERVER_CERT,
+                    $server['ssl_verify']
+                );
+                $client_flags |= MYSQLI_CLIENT_SSL_DONT_VERIFY_SERVER_CERT;
+            }
         }
 
-        if ($return_value === false) {
+        if ($GLOBALS['cfg']['PersistentConnections']) {
+            $host = 'p:' . $server['host'];
+        } else {
+            $host = $server['host'];
+        }
+
+        $return_value = mysqli_real_connect(
+            $link,
+            $host,
+            $user,
+            $password,
+            '',
+            $server['port'],
+            $server['socket'],
+            $client_flags
+        );
+
+        if ($return_value === false || is_null($return_value)) {
             return false;
         }
 
@@ -490,9 +431,7 @@ class DBIMysqli implements DBIExtension
         //$typeAr[MYSQLI_TYPE_CHAR]        = 'string';
         $typeAr[MYSQLI_TYPE_GEOMETRY]    = 'geometry';
         $typeAr[MYSQLI_TYPE_BIT]         = 'bit';
-        if (defined('MYSQLI_TYPE_JSON')) {
-            $typeAr[MYSQLI_TYPE_JSON]        = 'json';
-        }
+        $typeAr[MYSQLI_TYPE_JSON]        = 'json';
 
         $fields = mysqli_fetch_fields($result);
 
@@ -588,7 +527,7 @@ class DBIMysqli implements DBIExtension
                 $flags[] = $name;
             }
         }
-        // See http://dev.mysql.com/doc/refman/6.0/en/c-api-datatypes.html:
+        // See https://dev.mysql.com/doc/refman/6.0/en/c-api-datatypes.html:
         // to determine if a string is binary, we should not use MYSQLI_BINARY_FLAG
         // but instead the charsetnr member of the MYSQL_FIELD
         // structure. Watch out: some types like DATE returns 63 in charsetnr
@@ -602,5 +541,18 @@ class DBIMysqli implements DBIExtension
             $flags[] = 'binary';
         }
         return implode(' ', $flags);
+    }
+
+    /**
+     * returns properly escaped string for use in MySQL queries
+     *
+     * @param mixed  $link database link
+     * @param string $str  string to be escaped
+     *
+     * @return string a MySQL escaped string
+     */
+    public function escapeString($link, $str)
+    {
+        return mysqli_real_escape_string($link, $str);
     }
 }

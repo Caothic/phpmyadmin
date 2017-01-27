@@ -8,16 +8,16 @@
 use PMA\libraries\plugins\export\ExportJson;
 
 require_once 'libraries/export.lib.php';
-require_once 'libraries/php-gettext/gettext.inc';
 require_once 'libraries/config.default.php';
-require_once 'export.php';
+require_once 'test/PMATestCase.php';
+
 /**
  * tests for PMA\libraries\plugins\export\ExportJson class
  *
  * @package PhpMyAdmin-test
  * @group medium
  */
-class ExportJsonTest extends PHPUnit_Framework_TestCase
+class ExportJsonTest extends PMATestCase
 {
     protected $object;
 
@@ -138,10 +138,10 @@ class ExportJsonTest extends PHPUnit_Framework_TestCase
         $GLOBALS['crlf'] = "\n";
 
         $this->expectOutputString(
-            '/**' . "\n"
-            . ' Export to JSON plugin for PHPMyAdmin' . "\n"
-            . ' @version 0.1' . "\n"
-            . ' */' . "\n" . "\n"
+            "[\n"
+            . '{"type":"header","version":"' . PMA_VERSION
+            . '","comment":"Export to JSON plugin for PHPMyAdmin"},'
+            . "\n"
         );
 
         $this->assertTrue(
@@ -156,6 +156,10 @@ class ExportJsonTest extends PHPUnit_Framework_TestCase
      */
     public function testExportFooter()
     {
+        $this->expectOutputString(
+            ']'
+        );
+
         $this->assertTrue(
             $this->object->exportFooter()
         );
@@ -171,7 +175,7 @@ class ExportJsonTest extends PHPUnit_Framework_TestCase
         $GLOBALS['crlf'] = "\n";
 
         $this->expectOutputString(
-            "// Database 'testDB'\n"
+            '{"type":"database","name":"testDB"},' . "\n"
         );
 
         $this->assertTrue(
@@ -242,8 +246,12 @@ class ExportJsonTest extends PHPUnit_Framework_TestCase
         $GLOBALS['dbi'] = $dbi;
 
         $this->expectOutputString(
-            "\n// db.tbl\n\n" .
-            "[{\"f1\":\"foo\"}, {\"f1\":\"bar\"}]\n"
+            '{"type":"table","name":"tbl","database":"db","data":'
+            . "\n[\n"
+            . '{"f1":"foo"},'
+            . "\n"
+            . '{"f1":"bar"}'
+            . "\n]\n}\n"
         );
 
         $this->assertTrue(

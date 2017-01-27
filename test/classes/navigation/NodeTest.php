@@ -11,16 +11,15 @@ use PMA\libraries\navigation\nodes\Node;
 use PMA\libraries\Theme;
 
 require_once 'libraries/navigation/NodeFactory.php';
-
-
 require_once 'libraries/database_interface.inc.php';
+require_once 'test/PMATestCase.php';
 
 /**
  * Tests for Node class
  *
  * @package PhpMyAdmin-test
  */
-class NodeTest extends PHPUnit_Framework_TestCase
+class NodeTest extends PMATestCase
 {
     /**
      * SetUp for test cases
@@ -31,7 +30,6 @@ class NodeTest extends PHPUnit_Framework_TestCase
     {
         $GLOBALS['server'] = 0;
         $GLOBALS['cfg']['Server']['DisableIS'] = false;
-        $_SESSION['PMA_Theme'] = Theme::load('./themes/pmahomme');
     }
 
     /**
@@ -300,9 +298,6 @@ class NodeTest extends PHPUnit_Framework_TestCase
             $method->invoke($node, 'SCHEMA_NAME', 'schemaName')
         );
 
-        if (! isset($GLOBALS['cfg'])) {
-            $GLOBALS['cfg'] = array();
-        }
         if (! isset($GLOBALS['cfg']['Server'])) {
             $GLOBALS['cfg']['Server'] = array();
         }
@@ -318,7 +313,7 @@ class NodeTest extends PHPUnit_Framework_TestCase
         // When only_db directive is present and it's a single db
         $GLOBALS['cfg']['Server']['only_db'] = 'stringOnlyDb';
         $this->assertEquals(
-            "WHERE TRUE AND ( `SCHEMA_NAME` LIKE 'stringOnlyDb' )",
+            "WHERE TRUE AND ( `SCHEMA_NAME` LIKE 'stringOnlyDb' ) ",
             $method->invoke($node, 'SCHEMA_NAME')
         );
         unset($GLOBALS['cfg']['Server']['only_db']);
@@ -327,7 +322,7 @@ class NodeTest extends PHPUnit_Framework_TestCase
         $GLOBALS['cfg']['Server']['only_db'] = array('onlyDbOne', 'onlyDbTwo');
         $this->assertEquals(
             "WHERE TRUE AND ( `SCHEMA_NAME` LIKE 'onlyDbOne' "
-            . "OR `SCHEMA_NAME` LIKE 'onlyDbTwo' )",
+            . "OR `SCHEMA_NAME` LIKE 'onlyDbTwo' ) ",
             $method->invoke($node, 'SCHEMA_NAME')
         );
         unset($GLOBALS['cfg']['Server']['only_db']);
@@ -344,9 +339,6 @@ class NodeTest extends PHPUnit_Framework_TestCase
     {
         $pos = 10;
         $limit = 20;
-        if (! isset($GLOBALS['cfg'])) {
-            $GLOBALS['cfg'] = array();
-        }
         $GLOBALS['cfg']['Server']['DisableIS'] = false;
         $GLOBALS['cfg']['NavigationTreeEnableGrouping'] = true;
         $GLOBALS['cfg']['FirstLevelNavigationItems'] = $limit;
@@ -380,6 +372,8 @@ class NodeTest extends PHPUnit_Framework_TestCase
         $dbi->expects($this->once())
             ->method('fetchResult')
             ->with($expectedSql);
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
         $GLOBALS['dbi'] = $dbi;
         $node->getData('', $pos);
     }
@@ -395,9 +389,6 @@ class NodeTest extends PHPUnit_Framework_TestCase
     {
         $pos = 10;
         $limit = 20;
-        if (! isset($GLOBALS['cfg'])) {
-            $GLOBALS['cfg'] = array();
-        }
         $GLOBALS['cfg']['Server']['DisableIS'] = false;
         $GLOBALS['cfg']['NavigationTreeEnableGrouping'] = false;
         $GLOBALS['cfg']['FirstLevelNavigationItems'] = $limit;
@@ -418,6 +409,9 @@ class NodeTest extends PHPUnit_Framework_TestCase
         $dbi->expects($this->once())
             ->method('fetchResult')
             ->with($expectedSql);
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
+
         $GLOBALS['dbi'] = $dbi;
         $node->getData('', $pos);
     }
@@ -433,9 +427,6 @@ class NodeTest extends PHPUnit_Framework_TestCase
     {
         $pos = 0;
         $limit = 10;
-        if (! isset($GLOBALS['cfg'])) {
-            $GLOBALS['cfg'] = array();
-        }
         $GLOBALS['cfg']['Server']['DisableIS'] = true;
         $GLOBALS['dbs_to_test'] = false;
         $GLOBALS['cfg']['NavigationTreeEnableGrouping'] = true;
@@ -451,27 +442,18 @@ class NodeTest extends PHPUnit_Framework_TestCase
             ->method('tryQuery')
             ->with("SHOW DATABASES WHERE TRUE AND `Database` LIKE '%db%' ")
             ->will($this->returnValue(true));
-        $dbi->expects($this->at(1))
+        $dbi->expects($this->exactly(3))
             ->method('fetchArray')
-            ->will(
-                $this->returnValue(
-                    array(
-                        '0' => 'db'
-                    )
-                )
+            ->willReturnOnConsecutiveCalls(
+                array(
+                    '0' => 'db'
+                ),
+                array(
+                    '0' => 'aa_db'
+                ),
+                false
             );
-        $dbi->expects($this->at(2))
-            ->method('fetchArray')
-            ->will(
-                $this->returnValue(
-                    array(
-                        '0' => 'aa_db'
-                    )
-                )
-            );
-        $dbi->expects($this->at(3))
-            ->method('fetchArray')
-            ->will($this->returnValue(false));
+
         $dbi->expects($this->once())
             ->method('fetchResult')
             ->with(
@@ -479,6 +461,9 @@ class NodeTest extends PHPUnit_Framework_TestCase
                 . " LOCATE('db_', CONCAT(`Database`, '_')) = 1"
                 . " OR LOCATE('aa_', CONCAT(`Database`, '_')) = 1 )"
             );
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
+
         $GLOBALS['dbi'] = $dbi;
         $node->getData('', $pos, 'db');
     }
@@ -566,6 +551,9 @@ class NodeTest extends PHPUnit_Framework_TestCase
         $dbi->expects($this->once())
             ->method('tryQuery')
             ->with("SHOW DATABASES WHERE TRUE ");
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
+
         $GLOBALS['dbi'] = $dbi;
         $node->getPresence();
 
@@ -576,6 +564,9 @@ class NodeTest extends PHPUnit_Framework_TestCase
         $dbi->expects($this->once())
             ->method('tryQuery')
             ->with("SHOW DATABASES WHERE TRUE AND `Database` LIKE '%dbname%' ");
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
+
         $GLOBALS['dbi'] = $dbi;
         $node->getPresence('', 'dbname');
     }

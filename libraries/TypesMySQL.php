@@ -24,7 +24,7 @@ class TypesMySQL extends Types
      */
     public function getTypeDescription($type)
     {
-        $type = /*overload*/mb_strtoupper($type);
+        $type = mb_strtoupper($type);
         switch ($type) {
         case 'TINYINT':
             return __(
@@ -227,7 +227,7 @@ class TypesMySQL extends Types
      */
     public function getTypeClass($type)
     {
-        $type = /*overload*/mb_strtoupper($type);
+        $type = mb_strtoupper($type);
         switch ($type) {
         case 'TINYINT':
         case 'SMALLINT':
@@ -535,9 +535,13 @@ class TypesMySQL extends Types
             'GEOMETRYCOLLECTION',
         );
 
-        $ret['JSON'] = array(
-            'JSON',
-        );
+        if (PMA_MYSQL_INT_VERSION >= 50708
+            && \PMA\libraries\Util::getServerType() != 'MariaDB'
+        ) {
+          $ret['JSON'] = array(
+              'JSON',
+          );
+        }
 
         return $ret;
     }

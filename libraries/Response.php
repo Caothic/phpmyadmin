@@ -53,21 +53,18 @@ class Response
     private $_footer;
     /**
      * Whether we are servicing an ajax request.
-     * We can't simply use $GLOBALS['is_ajax_request']
-     * here since it may have not been initialised yet.
      *
      * @access private
      * @var bool
      */
     private $_isAjax;
     /**
-     * Whether we are servicing an ajax request for a page
-     * that was fired using the generic page handler in JS.
+     * Whether response object is disabled
      *
      * @access private
      * @var bool
      */
-    private $_isAjaxPage;
+    private $_isDisabled;
     /**
      * Whether there were any errors during the processing of the request
      * Only used for ajax responses
@@ -92,7 +89,7 @@ class Response
         if (! defined('TESTSUITE')) {
             $buffer = OutputBuffering::getInstance();
             $buffer->start();
-            register_shutdown_function(array('PMA\libraries\Response', 'response'));
+            register_shutdown_function(array($this, 'response'));
         }
         $this->_header = new Header();
         $this->_HTML   = '';
@@ -100,19 +97,24 @@ class Response
         $this->_footer = new Footer();
 
         $this->_isSuccess  = true;
-        $this->_isAjax     = false;
-        $this->_isAjaxPage = false;
-        if (isset($_REQUEST['ajax_request']) && $_REQUEST['ajax_request'] == true) {
-            $this->_isAjax = true;
-        }
-        if (isset($_REQUEST['ajax_page_request'])
-            && $_REQUEST['ajax_page_request'] == true
-        ) {
-            $this->_isAjaxPage = true;
-        }
+        $this->_isDisabled = false;
+        $this->setAjax(! empty($_REQUEST['ajax_request']));
+        $this->_CWD = getcwd();
+    }
+
+    /**
+     * Set the ajax flag to indicate whether
+     * we are servicing an ajax request
+     *
+     * @param bool $isAjax Whether we are servicing an ajax request
+     *
+     * @return void
+     */
+    public function setAjax($isAjax)
+    {
+        $this->_isAjax = (boolean) $isAjax;
         $this->_header->setAjax($this->_isAjax);
         $this->_footer->setAjax($this->_isAjax);
-        $this->_CWD = getcwd();
     }
 
     /**
@@ -174,6 +176,7 @@ class Response
     {
         $this->_header->disable();
         $this->_footer->disable();
+        $this->_isDisabled = true;
     }
 
     /**
@@ -277,6 +280,12 @@ class Response
      */
     private function _ajaxResponse()
     {
+        /* Avoid wrapping in case we're disabled */
+        if ($this->_isDisabled) {
+            echo $this->_getDisplay();
+            return;
+        }
+
         if (! isset($this->_JSON['message'])) {
             $this->_JSON['message'] = $this->_getDisplay();
         } else if ($this->_JSON['message'] instanceof Message) {
@@ -292,9 +301,6 @@ class Response
         }
 
         if ($this->_isSuccess) {
-            // Note: the old judge sentence is:
-            // $this->_isAjaxPage && $this->_isSuccess
-            // Removal the first, because console need log all queries
             $this->addJSON('_title', $this->getHeader()->getTitleTag());
 
             if (isset($GLOBALS['dbi'])) {
@@ -315,18 +321,18 @@ class Response
             }
 
             $this->addJSON('_scripts', $this->getHeader()->getScripts()->getFiles());
-            $this->addJSON('_selflink', $this->getFooter()->getSelfUrl('unencoded'));
+            $this->addJSON('_selflink', $this->getFooter()->getSelfUrl());
             $this->addJSON('_displayMessage', $this->getHeader()->getMessage());
 
             $debug = $this->_footer->getDebugMessage();
             if (empty($_REQUEST['no_debug'])
-                && /*overload*/mb_strlen($debug)
+                && strlen($debug) > 0
             ) {
                 $this->addJSON('_debug', $debug);
             }
 
             $errors = $this->_footer->getErrorMessages();
-            if (/*overload*/mb_strlen($errors)) {
+            if (strlen($errors) > 0) {
                 $this->addJSON('_errors', $errors);
             }
             $promptPhpErrors = $GLOBALS['error_handler']->hasErrorsForPrompt();
@@ -338,7 +344,7 @@ class Response
                 $query = '';
                 $maxChars = $GLOBALS['cfg']['MaxCharactersInDisplayedSQL'];
                 if (isset($GLOBALS['sql_query'])
-                    && /*overload*/mb_strlen($GLOBALS['sql_query']) < $maxChars
+                    && mb_strlen($GLOBALS['sql_query']) < $maxChars
                 ) {
                     $query = $GLOBALS['sql_query'];
                 }
@@ -362,35 +368,92 @@ class Response
 
         // Set the Content-Type header to JSON so that jQuery parses the
         // response correctly.
-        if (! defined('TESTSUITE')) {
-            header('Cache-Control: no-cache');
-            header('Content-Type: application/json');
-        }
+        PMA_headerJSON();
 
-        echo json_encode($this->_JSON);
+        $result = json_encode($this->_JSON);
+        if ($result === false) {
+            switch (json_last_error()) {
+                case JSON_ERROR_NONE:
+                    $error = 'No errors';
+                break;
+                case JSON_ERROR_DEPTH:
+                    $error = 'Maximum stack depth exceeded';
+                break;
+                case JSON_ERROR_STATE_MISMATCH:
+                    $error = 'Underflow or the modes mismatch';
+                break;
+                case JSON_ERROR_CTRL_CHAR:
+                    $error = 'Unexpected control character found';
+                break;
+                case JSON_ERROR_SYNTAX:
+                    $error = 'Syntax error, malformed JSON';
+                break;
+                case JSON_ERROR_UTF8:
+                    $error = 'Malformed UTF-8 characters, possibly incorrectly encoded';
+                break;
+                case JSON_ERROR_RECURSION:
+                    $error = 'One or more recursive references in the value to be encoded';
+                break;
+                case JSON_ERROR_INF_OR_NAN:
+                    $error = 'One or more NAN or INF values in the value to be encoded';
+                break;
+                case JSON_ERROR_UNSUPPORTED_TYPE:
+                    $error = 'A value of a type that cannot be encoded was given';
+                default:
+                    $error = 'Unknown error';
+                break;
+            }
+            echo json_encode(
+                array(
+                    'success' => false,
+                    'error' => 'JSON encoding failed: ' . $error,
+                )
+            );
+        } else {
+            echo $result;
+        }
     }
 
     /**
      * Sends an HTML response to the browser
      *
-     * @static
      * @return void
      */
-    public static function response()
+    public function response()
     {
-        $response = Response::getInstance();
-        chdir($response->getCWD());
+        chdir($this->getCWD());
         $buffer = OutputBuffering::getInstance();
-        if (empty($response->_HTML)) {
-            $response->_HTML = $buffer->getContents();
+        if (empty($this->_HTML)) {
+            $this->_HTML = $buffer->getContents();
         }
-        if ($response->isAjax()) {
-            $response->_ajaxResponse();
+        if ($this->isAjax()) {
+            $this->_ajaxResponse();
         } else {
-            $response->_htmlResponse();
+            $this->_htmlResponse();
         }
         $buffer->flush();
         exit;
     }
-}
 
+    /**
+     * Wrapper around PHP's header() function.
+     *
+     * @param string $text header string
+     *
+     * @return void
+     */
+    public function header($text)
+    {
+        header($text);
+    }
+
+    /**
+     * Wrapper around PHP's headers_sent() function.
+     *
+     * @return bool
+     */
+    public function headersSent()
+    {
+        return headers_sent();
+    }
+}

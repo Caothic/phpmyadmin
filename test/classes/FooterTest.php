@@ -11,19 +11,15 @@
 
 use PMA\libraries\Theme;
 
-require_once 'libraries/js_escape.lib.php';
-require_once 'libraries/core.lib.php';
-require_once 'libraries/url_generating.lib.php';
-require_once 'libraries/php-gettext/gettext.inc';
-require_once 'libraries/vendor_config.php';
 require_once 'libraries/relation.lib.php';
+require_once 'test/PMATestCase.php';
 
 /**
  * Tests for Footer class
  *
  * @package PhpMyAdmin-test
  */
-class FooterTest extends PHPUnit_Framework_TestCase
+class FooterTest extends PMATestCase
 {
 
     /**
@@ -50,12 +46,10 @@ class FooterTest extends PHPUnit_Framework_TestCase
         $GLOBALS['db'] = '';
         $GLOBALS['table'] = '';
         $GLOBALS['text_dir'] = 'ltr';
-        $GLOBALS['pmaThemeImage'] = 'image';
         $GLOBALS['PMA_Config'] = new PMA\libraries\Config();
         $GLOBALS['PMA_Config']->enableBc();
         $GLOBALS['collation_connection'] = 'utf8_general_ci';
         $GLOBALS['cfg']['Server']['verbose'] = 'verbose host';
-        $GLOBALS['cfg']['DefaultTabDatabase'] = 'structure';
         $GLOBALS['server'] = '1';
         $_GET['reload_left_frame'] = '1';
         $GLOBALS['focus_querywindow'] = 'main_pane_left';
@@ -65,8 +59,6 @@ class FooterTest extends PHPUnit_Framework_TestCase
         $GLOBALS['error_handler'] = new PMA\libraries\ErrorHandler();
         unset($_POST);
 
-        $_SESSION['PMA_Theme'] = Theme::load('./themes/pmahomme');
-        $_SESSION['PMA_Theme'] = new Theme();
     }
 
     /**
@@ -165,8 +157,8 @@ class FooterTest extends PHPUnit_Framework_TestCase
         $this->assertEquals(
             '<div id="selflink" class="print_ignore"><a href="index.php?db=&amp;'
             . 'table=&amp;server=1&amp;target=&amp;lang=en&amp;collation_connection='
-            . 'utf8_general_ci&amp;token=token" title="Open new phpMyAdmin window" '
-            . 'target="_blank">Open new phpMyAdmin window</a></div>',
+            . 'utf8_general_ci" title="Open new phpMyAdmin window" '
+            . 'target="_blank" rel="noopener noreferrer">Open new phpMyAdmin window</a></div>',
             $this->_callPrivateFunction(
                 '_getSelfLink',
                 array(
@@ -186,15 +178,14 @@ class FooterTest extends PHPUnit_Framework_TestCase
 
         $GLOBALS['cfg']['TabsMode'] = 'icons';
         $GLOBALS['cfg']['ServerDefault'] = 1;
-        $_SESSION['PMA_Theme'] = new Theme();
-        $GLOBALS['pmaThemeImage'] = 'image';
 
         $this->assertEquals(
             '<div id="selflink" class="print_ignore"><a href="index.php?db=&amp;'
             . 'table=&amp;server=1&amp;target=&amp;lang=en&amp;collation_connection='
-            . 'utf8_general_ci&amp;token=token" title="Open new phpMyAdmin window" '
-            . 'target="_blank"><img src="imagewindow-new.png" title="Open new '
-            . 'phpMyAdmin window" alt="Open new phpMyAdmin window" /></a></div>',
+            . 'utf8_general_ci" title="Open new phpMyAdmin window" '
+            . 'target="_blank" rel="noopener noreferrer"><img src="themes/dot.gif" title="Open new '
+            . 'phpMyAdmin window" alt="Open new phpMyAdmin window" '
+            . 'class="icon ic_window-new" /></a></div>',
             $this->_callPrivateFunction(
                 '_getSelfLink',
                 array(

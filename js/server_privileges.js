@@ -31,6 +31,36 @@ function checkAddUser(the_form)
     return PMA_checkPassword($(the_form));
 } // end of the 'checkAddUser()' function
 
+function checkPasswordStrength(value, meter_obj, meter_object_label, username) {
+    // List of words we don't want to appear in the password
+    customDict = [
+        'phpmyadmin',
+        'mariadb',
+        'mysql',
+        'php',
+        'my',
+        'admin',
+    ];
+    if (username != null) {
+        customDict.push(username)
+    }
+    var zxcvbn_obj = zxcvbn(value, customDict);
+    var strength = zxcvbn_obj.score;
+    strength = parseInt(strength);
+    meter_obj.val(strength);
+    switch(strength){
+        case 0: meter_obj_label.html(PMA_messages.strExtrWeak);
+                break;
+        case 1: meter_obj_label.html(PMA_messages.strVeryWeak);
+                break;
+        case 2: meter_obj_label.html(PMA_messages.strWeak);
+                break;
+        case 3: meter_obj_label.html(PMA_messages.strGood);
+                break;
+        case 4: meter_obj_label.html(PMA_messages.strStrong);
+    }
+}
+
 /**
  * AJAX scripts for server_privileges page.
  *
@@ -51,7 +81,7 @@ function checkAddUser(the_form)
  * Unbind all event handlers before tearing down a page
  */
 AJAX.registerTeardown('server_privileges.js', function () {
-    $(document).off("focusout", "#fieldset_add_user_login input[name='username']");
+    $("#fieldset_add_user_login").off('change', "input[name='username']");
     $(document).off('click', "#fieldset_delete_user_footer #buttonGo.ajax");
     $(document).off('click', "a.edit_user_group_anchor.ajax");
     $(document).off('click', "button.mult_submit[value=export]");
@@ -68,7 +98,7 @@ AJAX.registerOnload('server_privileges.js', function () {
     /**
      * Display a warning if there is already a user by the name entered as the username.
      */
-    $(document).on("focusout", "#fieldset_add_user_login input[name='username']", function () {
+    $("#fieldset_add_user_login").on('change', "input[name='username']", function () {
         var username = $(this).val();
         var $warning = $("#user_exists_warning");
         if ($("#select_pred_username").val() == 'userdefined' && username !== '') {
@@ -90,6 +120,23 @@ AJAX.registerOnload('server_privileges.js', function () {
         } else {
             $warning.hide();
         }
+    });
+
+    /**
+     * Indicating password strength
+     */
+    $('#text_pma_pw').on('keyup', function () {
+        meter_obj = $('#password_strength_meter');
+        meter_obj_label = $('#password_strength');
+        username = $('input[name="username"]');
+        username = username.val();
+        checkPasswordStrength($(this).val(), meter_obj, meter_obj_label, username);
+    });
+
+    $('#text_pma_change_pw').on('keyup', function () {
+        meter_obj = $('#change_password_strength_meter');
+        meter_obj_label = $('#change_password_strength');
+        checkPasswordStrength($(this).val(), meter_obj, meter_obj_label, PMA_commonParams.get('user'));
     });
 
     /**
@@ -345,7 +392,7 @@ AJAX.registerOnload('server_privileges.js', function () {
 
     $(document).on('change', 'input[name="ssl_type"]', function (e) {
         var $div = $('#specified_div');
-        if ($('#ssl_type_specified').is(':checked')) {
+        if ($('#ssl_type_SPECIFIED').is(':checked')) {
             $div.find('input').prop('disabled', false);
         } else {
             $div.find('input').prop('disabled', true);
@@ -356,7 +403,7 @@ AJAX.registerOnload('server_privileges.js', function () {
         var $div = $('#require_ssl_div');
         if ($(this).is(':checked')) {
             $div.find('input').prop('disabled', false);
-            $('#ssl_type_specified').trigger('change');
+            $('#ssl_type_SPECIFIED').trigger('change');
         } else {
             $div.find('input').prop('disabled', true);
         }

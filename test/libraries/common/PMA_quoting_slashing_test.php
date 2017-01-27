@@ -20,50 +20,6 @@
  */
 class PMA_QuotingSlashing_Test extends PHPUnit_Framework_TestCase
 {
-
-    /**
-     * sqlAddslashes test
-     *
-     * @return void
-     */
-    public function testAddSlashes()
-    {
-        $string = "\'test''\''\'\r\t\n";
-
-        $this->assertEquals(
-            "\\\\\\\\\'test\'\'\\\\\\\\\'\'\\\\\\\\\'\\r\\t\\n",
-            PMA\libraries\Util::sqlAddSlashes($string, true, true, true)
-        );
-        $this->assertEquals(
-            "\\\\\\\\''test''''\\\\\\\\''''\\\\\\\\''\\r\\t\\n",
-            PMA\libraries\Util::sqlAddSlashes($string, true, true, false)
-        );
-        $this->assertEquals(
-            "\\\\\\\\\'test\'\'\\\\\\\\\'\'\\\\\\\\\'\r\t\n",
-            PMA\libraries\Util::sqlAddSlashes($string, true, false, true)
-        );
-        $this->assertEquals(
-            "\\\\\\\\''test''''\\\\\\\\''''\\\\\\\\''\r\t\n",
-            PMA\libraries\Util::sqlAddSlashes($string, true, false, false)
-        );
-        $this->assertEquals(
-            "\\\\\'test\'\'\\\\\'\'\\\\\'\\r\\t\\n",
-            PMA\libraries\Util::sqlAddSlashes($string, false, true, true)
-        );
-        $this->assertEquals(
-            "\\\\''test''''\\\\''''\\\\''\\r\\t\\n",
-            PMA\libraries\Util::sqlAddSlashes($string, false, true, false)
-        );
-        $this->assertEquals(
-            "\\\\\'test\'\'\\\\\'\'\\\\\'\r\t\n",
-            PMA\libraries\Util::sqlAddSlashes($string, false, false, true)
-        );
-        $this->assertEquals(
-            "\\\\''test''''\\\\''''\\\\''\r\t\n",
-            PMA\libraries\Util::sqlAddSlashes($string, false, false, false)
-        );
-    }
-
     /**
      * data provider for PMA\libraries\Util::unQuote test
      *
@@ -213,8 +169,8 @@ class PMA_QuotingSlashing_Test extends PHPUnit_Framework_TestCase
      */
     public function testBackquoteForbidenWords()
     {
-        foreach (SqlParser\Context::$KEYWORDS as $keyword => $type) {
-            if ($type & SqlParser\Token::FLAG_KEYWORD_RESERVED) {
+        foreach (PhpMyAdmin\SqlParser\Context::$KEYWORDS as $keyword => $type) {
+            if ($type & PhpMyAdmin\SqlParser\Token::FLAG_KEYWORD_RESERVED) {
                 $this->assertEquals(
                     "`" . $keyword . "`",
                     PMA\libraries\Util::backquote($keyword, false)

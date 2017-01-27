@@ -10,10 +10,6 @@ namespace PMA\libraries\plugins\transformations\abs;
 
 use PMA\libraries\plugins\TransformationsPlugin;
 
-if (!defined('PHPMYADMIN')) {
-    exit;
-}
-
 /**
  * Provides common methods for all of the download transformations plugins.
  *
@@ -73,7 +69,7 @@ abstract class DownloadTransformationsPlugin extends TransformationsPlugin
             '<a href="transformation_wrapper.php%s&amp;ct=application'
             . '/octet-stream&amp;cn=%s" title="%s" class="disableAjax">%s</a>',
             $options['wrapper_link'],
-            urlencode($cn),
+            htmlspecialchars(urlencode($cn)),
             htmlspecialchars($cn),
             htmlspecialchars($cn)
         );

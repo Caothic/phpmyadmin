@@ -8,16 +8,15 @@
 
 use PMA\libraries\plugins\auth\AuthenticationSignon;
 
-require_once 'libraries/php-gettext/gettext.inc';
 require_once 'libraries/config.default.php';
-require_once 'libraries/sanitizing.lib.php';
+require_once 'test/PMATestCase.php';
 
 /**
  * tests for PMA\libraries\plugins\auth\AuthenticationSignon class
  *
  * @package PhpMyAdmin-test
  */
-class AuthenticationSignonTest extends PHPUnit_Framework_TestCase
+class AuthenticationSignonTest extends PMATestCase
 {
     protected $object;
 
@@ -41,6 +40,7 @@ class AuthenticationSignonTest extends PHPUnit_Framework_TestCase
      */
     public function tearDown()
     {
+        parent::tearDown();
         unset($this->object);
     }
 
@@ -51,14 +51,6 @@ class AuthenticationSignonTest extends PHPUnit_Framework_TestCase
      */
     public function testAuth()
     {
-        if (! defined('PMA_TEST_HEADERS')) {
-            $this->markTestSkipped(
-                'Cannot redefine constant/function - missing runkit extension'
-            );
-        }
-
-        // case 1
-
         $GLOBALS['cfg']['Server']['SignonURL'] = '';
 
         ob_start();
@@ -69,32 +61,51 @@ class AuthenticationSignonTest extends PHPUnit_Framework_TestCase
             'You must set SignonURL!',
             $result
         );
+    }
 
-        // case 2
+    /**
+     * Test for PMA\libraries\plugins\auth\AuthenticationSignon::auth
+     *
+     * @return void
+     */
+    public function testAuthLogoutURL()
+    {
+        $this->mockResponse('Location: https://example.com/logoutURL');
 
-        $GLOBALS['cfg']['Server']['SignonURL'] = 'http://phpmyadmin.net/SignonURL';
-        $_REQUEST['old_usr'] = 'oldUser';
-        $GLOBALS['cfg']['Server']['LogoutURL'] = 'http://phpmyadmin.net/logoutURL';
+        $GLOBALS['cfg']['Server']['SignonURL'] = 'https://example.com/SignonURL';
+        $GLOBALS['cfg']['Server']['LogoutURL'] = 'https://example.com/logoutURL';
 
-        $this->object->auth();
+        $this->object->logOut();
+    }
 
-        $this->assertContains(
-            'Location: http://phpmyadmin.net/logoutURL?PHPSESSID=',
-            $GLOBALS['header'][0]
-        );
-
-        // case 3
+    /**
+     * Test for PMA\libraries\plugins\auth\AuthenticationSignon::auth
+     *
+     * @return void
+     */
+    public function testAuthLogout()
+    {
+        $this->mockResponse('Location: https://example.com/SignonURL');
 
         $GLOBALS['header'] = array();
-        $GLOBALS['cfg']['Server']['SignonURL'] = 'http://phpmyadmin.net/SignonURL';
-        $_REQUEST['old_usr'] = '';
+        $GLOBALS['cfg']['Server']['SignonURL'] = 'https://example.com/SignonURL';
         $GLOBALS['cfg']['Server']['LogoutURL'] = '';
 
-        $this->object->auth();
+        $this->object->logOut();
+    }
 
-        $this->assertContains(
-            'Location: http://phpmyadmin.net/SignonURL?PHPSESSID=',
-            $GLOBALS['header'][0]
+    /**
+     * Test for PMA\libraries\plugins\auth\AuthenticationSignon::authCheck
+     *
+     * @return void
+     */
+    public function testAuthCheckEmpty()
+    {
+        $GLOBALS['cfg']['Server']['SignonURL'] = 'https://example.com/SignonURL';
+        $_SESSION['LAST_SIGNON_URL'] = 'https://example.com/SignonDiffURL';
+
+        $this->assertFalse(
+            $this->object->authCheck()
         );
     }
 
@@ -103,22 +114,13 @@ class AuthenticationSignonTest extends PHPUnit_Framework_TestCase
      *
      * @return void
      */
-    public function testAuthCheck()
+    public function testAuthCheckSession()
     {
-        // case 1
-
-        $GLOBALS['cfg']['Server']['SignonURL'] = 'http://phpmyadmin.net/SignonURL';
-        $_SESSION['LAST_SIGNON_URL'] = 'http://phpmyadmin.net/SignonDiffURL';
-
-        $this->assertFalse(
-            $this->object->authCheck()
-        );
-
-        // case 2
-
-        $_SESSION['LAST_SIGNON_URL'] = 'http://phpmyadmin.net/SignonURL';
+        $GLOBALS['cfg']['Server']['SignonURL'] = 'https://example.com/SignonURL';
+        $_SESSION['LAST_SIGNON_URL'] = 'https://example.com/SignonURL';
         $GLOBALS['cfg']['Server']['SignonScript'] = './examples/signon-script.php';
         $GLOBALS['cfg']['Server']['SignonSession'] = 'session123';
+        $GLOBALS['cfg']['Server']['SignonCookieParams'] = array();
         $GLOBALS['cfg']['Server']['host'] = 'localhost';
         $GLOBALS['cfg']['Server']['port'] = '80';
         $GLOBALS['cfg']['Server']['user'] = 'user';
@@ -138,15 +140,28 @@ class AuthenticationSignonTest extends PHPUnit_Framework_TestCase
         );
 
         $this->assertEquals(
-            'http://phpmyadmin.net/SignonURL',
+            'https://example.com/SignonURL',
             $_SESSION['LAST_SIGNON_URL']
         );
+    }
 
-        // case 3
+    /**
+     * Test for PMA\libraries\plugins\auth\AuthenticationSignon::authCheck
+     *
+     * @return void
+     */
+    public function testAuthCheckToken()
+    {
+        $this->mockResponse('Location: https://example.com/SignonURL');
 
+        $GLOBALS['cfg']['Server']['SignonURL'] = 'https://example.com/SignonURL';
+        $GLOBALS['cfg']['Server']['SignonSession'] = 'session123';
+        $GLOBALS['cfg']['Server']['SignonCookieParams'] = array();
+        $GLOBALS['cfg']['Server']['host'] = 'localhost';
+        $GLOBALS['cfg']['Server']['port'] = '80';
+        $GLOBALS['cfg']['Server']['user'] = 'user';
         $GLOBALS['cfg']['Server']['SignonScript'] = '';
         $_COOKIE['session123'] = true;
-        $_REQUEST['old_usr'] = 'oldUser';
         $_SESSION['PMA_single_signon_user'] = 'user123';
         $_SESSION['PMA_single_signon_password'] = 'pass123';
         $_SESSION['PMA_single_signon_host'] = 'local';
@@ -156,26 +171,19 @@ class AuthenticationSignonTest extends PHPUnit_Framework_TestCase
         $sessionName = session_name();
         $sessionID = session_id();
 
-        $this->assertFalse(
-            $this->object->authCheck()
-        );
+        $this->object->logOut();
 
         $this->assertEquals(
             array(
-                'SignonURL' => 'http://phpmyadmin.net/SignonURL',
+                'SignonURL' => 'https://example.com/SignonURL',
                 'SignonScript' => '',
                 'SignonSession' => 'session123',
-                'host' => 'local',
-                'port' => '12',
+                'SignonCookieParams' => array(),
+                'host' => 'localhost',
+                'port' => '80',
                 'user' => 'user',
-                'foo' => 'bar'
             ),
             $GLOBALS['cfg']['Server']
-        );
-
-        $this->assertEquals(
-            'pmaToken',
-            $_SESSION[' PMA_token ']
         );
 
         $this->assertEquals(
@@ -191,9 +199,30 @@ class AuthenticationSignonTest extends PHPUnit_Framework_TestCase
         $this->assertFalse(
             isset($_SESSION['LAST_SIGNON_URL'])
         );
+    }
 
-        // case 4
+    /**
+     * Test for PMA\libraries\plugins\auth\AuthenticationSignon::authCheck
+     *
+     * @return void
+     */
+    public function testAuthCheckKeep()
+    {
+        $GLOBALS['cfg']['Server']['SignonURL'] = 'https://example.com/SignonURL';
+        $GLOBALS['cfg']['Server']['SignonSession'] = 'session123';
+        $GLOBALS['cfg']['Server']['SignonCookieParams'] = array();
+        $GLOBALS['cfg']['Server']['host'] = 'localhost';
+        $GLOBALS['cfg']['Server']['port'] = '80';
+        $GLOBALS['cfg']['Server']['user'] = 'user';
+        $GLOBALS['cfg']['Server']['SignonScript'] = '';
+        $_COOKIE['session123'] = true;
         $_REQUEST['old_usr'] = '';
+        $_SESSION['PMA_single_signon_user'] = 'user123';
+        $_SESSION['PMA_single_signon_password'] = 'pass123';
+        $_SESSION['PMA_single_signon_host'] = 'local';
+        $_SESSION['PMA_single_signon_port'] = '12';
+        $_SESSION['PMA_single_signon_cfgupdate'] = array('foo' => 'bar');
+        $_SESSION['PMA_single_signon_token'] = 'pmaToken';
 
         $this->assertTrue(
             $this->object->authCheck()
@@ -240,7 +269,7 @@ class AuthenticationSignonTest extends PHPUnit_Framework_TestCase
      *
      * @return void
      */
-    public function testAuthFails()
+    public function testAuthFailsForbidden()
     {
         $GLOBALS['cfg']['Server']['SignonSession'] = 'newSession';
         $_COOKIE['newSession'] = '42';
@@ -250,10 +279,8 @@ class AuthenticationSignonTest extends PHPUnit_Framework_TestCase
             ->setMethods(array('auth'))
             ->getMock();
 
-        $this->object->expects($this->exactly(5))
+        $this->object->expects($this->exactly(1))
             ->method('auth');
-
-        // case 1
 
         $GLOBALS['login_without_password_is_forbidden'] = true;
 
@@ -264,8 +291,25 @@ class AuthenticationSignonTest extends PHPUnit_Framework_TestCase
             . '(see AllowNoPassword)',
             $_SESSION['PMA_single_signon_error_message']
         );
+    }
 
-        // case 2
+    /**
+     * Test for PMA\libraries\plugins\auth\AuthenticationSignon::authFails
+     *
+     * @return void
+     */
+    public function testAuthFailsDeny()
+    {
+        $GLOBALS['cfg']['Server']['SignonSession'] = 'newSession';
+        $_COOKIE['newSession'] = '42';
+
+        $this->object = $this->getMockBuilder('PMA\libraries\plugins\auth\AuthenticationSignon')
+            ->disableOriginalConstructor()
+            ->setMethods(array('auth'))
+            ->getMock();
+
+        $this->object->expects($this->exactly(1))
+            ->method('auth');
 
         $GLOBALS['login_without_password_is_forbidden'] = null;
         $GLOBALS['allowDeny_forbidden'] = true;
@@ -276,8 +320,25 @@ class AuthenticationSignonTest extends PHPUnit_Framework_TestCase
             'Access denied!',
             $_SESSION['PMA_single_signon_error_message']
         );
+    }
 
-        // case 3
+    /**
+     * Test for PMA\libraries\plugins\auth\AuthenticationSignon::authFails
+     *
+     * @return void
+     */
+    public function testAuthFailsTimeout()
+    {
+        $GLOBALS['cfg']['Server']['SignonSession'] = 'newSession';
+        $_COOKIE['newSession'] = '42';
+
+        $this->object = $this->getMockBuilder('PMA\libraries\plugins\auth\AuthenticationSignon')
+            ->disableOriginalConstructor()
+            ->setMethods(array('auth'))
+            ->getMock();
+
+        $this->object->expects($this->exactly(1))
+            ->method('auth');
 
         $GLOBALS['allowDeny_forbidden'] = null;
         $GLOBALS['no_activity'] = true;
@@ -289,8 +350,25 @@ class AuthenticationSignonTest extends PHPUnit_Framework_TestCase
             'No activity within 1440 seconds; please log in again.',
             $_SESSION['PMA_single_signon_error_message']
         );
+    }
 
-        // case 4
+    /**
+     * Test for PMA\libraries\plugins\auth\AuthenticationSignon::authFails
+     *
+     * @return void
+     */
+    public function testAuthFailsMySQLError()
+    {
+        $GLOBALS['cfg']['Server']['SignonSession'] = 'newSession';
+        $_COOKIE['newSession'] = '42';
+
+        $this->object = $this->getMockBuilder('PMA\libraries\plugins\auth\AuthenticationSignon')
+            ->disableOriginalConstructor()
+            ->setMethods(array('auth'))
+            ->getMock();
+
+        $this->object->expects($this->exactly(1))
+            ->method('auth');
 
         $dbi = $this->getMockBuilder('PMA\libraries\DatabaseInterface')
             ->disableOriginalConstructor()
@@ -299,10 +377,6 @@ class AuthenticationSignonTest extends PHPUnit_Framework_TestCase
         $dbi->expects($this->at(0))
             ->method('getError')
             ->will($this->returnValue('error<123>'));
-
-        $dbi->expects($this->at(1))
-            ->method('getError')
-            ->will($this->returnValue(null));
 
         $GLOBALS['dbi'] = $dbi;
         $GLOBALS['no_activity'] = null;
@@ -313,8 +387,36 @@ class AuthenticationSignonTest extends PHPUnit_Framework_TestCase
             'error&lt;123&gt;',
             $_SESSION['PMA_single_signon_error_message']
         );
+    }
 
-        // case 5
+    /**
+     * Test for PMA\libraries\plugins\auth\AuthenticationSignon::authFails
+     *
+     * @return void
+     */
+    public function testAuthFailsConnect()
+    {
+        $GLOBALS['cfg']['Server']['SignonSession'] = 'newSession';
+        $_COOKIE['newSession'] = '42';
+
+        $this->object = $this->getMockBuilder('PMA\libraries\plugins\auth\AuthenticationSignon')
+            ->disableOriginalConstructor()
+            ->setMethods(array('auth'))
+            ->getMock();
+
+        $this->object->expects($this->exactly(1))
+            ->method('auth');
+
+        $dbi = $this->getMockBuilder('PMA\libraries\DatabaseInterface')
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $dbi->expects($this->at(0))
+            ->method('getError')
+            ->will($this->returnValue(null));
+
+        $GLOBALS['dbi'] = $dbi;
+
         $this->object->authFails();
 
         $this->assertEquals(

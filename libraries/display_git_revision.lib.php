@@ -5,9 +5,7 @@
  *
  * @package PhpMyAdmin
  */
-if (! defined('PHPMYADMIN')) {
-    exit;
-}
+use PMA\libraries\Response;
 
 /**
 * Prints details about the current Git commit revision
@@ -17,7 +15,7 @@ if (! defined('PHPMYADMIN')) {
 function PMA_printGitRevision()
 {
     if (! $GLOBALS['PMA_Config']->get('PMA_VERSION_GIT')) {
-        $response = PMA\libraries\Response::getInstance();
+        $response = Response::getInstance();
         $response->setRequestStatus(false);
         return;
     }
@@ -40,7 +38,7 @@ function PMA_printGitRevision()
                 'https://github.com/phpmyadmin/phpmyadmin/commit/'
                 . $GLOBALS['PMA_Config']->get('PMA_VERSION_GIT_COMMITHASH')
             )
-            . '" target="_blank">' . $commit_hash . '</a>';
+            . '" rel="noopener noreferrer" target="_blank">' . $commit_hash . '</a>';
     }
 
     $branch = $GLOBALS['PMA_Config']->get('PMA_VERSION_GIT_BRANCH');
@@ -50,7 +48,7 @@ function PMA_printGitRevision()
                 'https://github.com/phpmyadmin/phpmyadmin/tree/'
                 . $GLOBALS['PMA_Config']->get('PMA_VERSION_GIT_BRANCH')
             )
-            . '" target="_blank">' . $branch . '</a>';
+            . '" rel="noopener noreferrer" target="_blank">' . $branch . '</a>';
     }
     if ($branch !== false) {
         $branch = sprintf(__('%1$s from %2$s branch'), $commit_hash, $branch);

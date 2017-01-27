@@ -8,11 +8,8 @@
 namespace PMA\libraries\plugins\schema\svg;
 
 use PMA;
+use PMA\libraries\Response;
 use XMLWriter;
-
-if (!defined('PHPMYADMIN')) {
-    exit;
-}
 
 /**
  * This Class inherits the XMLwriter class and
@@ -20,7 +17,7 @@ if (!defined('PHPMYADMIN')) {
  *
  * @package PhpMyAdmin
  * @access  public
- * @see     http://php.net/manual/en/book.xmlwriter.php
+ * @see     https://secure.php.net/manual/en/book.xmlwriter.php
  */
 class Svg extends XMLWriter
 {
@@ -108,7 +105,7 @@ class Svg extends XMLWriter
     /**
      * Set document font size
      *
-     * @param string $value sets the font size in pixels
+     * @param integer $value sets the font size in pixels
      *
      * @return void
      */
@@ -120,7 +117,7 @@ class Svg extends XMLWriter
     /**
      * Get document font size
      *
-     * @return string returns the font size
+     * @return integer returns the font size
      */
     public function getFontSize()
     {
@@ -192,13 +189,11 @@ class Svg extends XMLWriter
     {
         //ob_get_clean();
         $output = $this->flush();
-        PMA\libraries\Response::getInstance()
-            ->disable();
+        Response::getInstance()->disable();
         PMA_downloadHeader(
             $fileName,
             'image/svg+xml',
-            /*overload*/
-            mb_strlen($output)
+            strlen($output)
         );
         print $output;
     }
@@ -245,7 +240,7 @@ class Svg extends XMLWriter
         $this->writeAttribute('style', $styles);
         if (isset($text)) {
             $this->writeAttribute('font-family', $this->font);
-            $this->writeAttribute('font-size', $this->fontSize);
+            $this->writeAttribute('font-size', $this->fontSize . 'px');
             $this->text($text);
         }
         $this->endElement();

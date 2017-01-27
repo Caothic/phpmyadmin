@@ -14,12 +14,13 @@
  */
 namespace PMA\libraries\config;
 
+use PMA\libraries\Sanitize;
+
 /**
  * Core libraries.
  */
 use PMA\libraries\Util;
 
-require_once './libraries/js_escape.lib.php';
 require_once './libraries/config/FormDisplay.tpl.php';
 
 /**
@@ -335,7 +336,7 @@ class FormDisplay
             $js_lang_sent = true;
             $js_lang = array();
             foreach ($this->_jsLangStrings as $strName => $strValue) {
-                $js_lang[] = "'$strName': '" . PMA_jsFormat($strValue, false) . '\'';
+                $js_lang[] = "'$strName': '" . Sanitize::jsFormat($strValue, false) . '\'';
             }
             $js[] = "$.extend(PMA_messages, {\n\t"
                 . implode(",\n\t", $js_lang) . '})';
@@ -422,9 +423,9 @@ class FormDisplay
         case 'group':
             // :group:end is changed to :group:end:{unique id} in Form class
             $htmlOutput = '';
-            if (/*overload*/mb_substr($field, 7, 4) != 'end:') {
+            if (mb_substr($field, 7, 4) != 'end:') {
                 $htmlOutput .= PMA_displayGroupHeader(
-                    /*overload*/mb_substr($field, 7)
+                    mb_substr($field, 7)
                 );
             } else {
                 PMA_displayGroupFooter();
@@ -437,7 +438,9 @@ class FormDisplay
 
         // detect password fields
         if ($type === 'text'
-            && /*overload*/mb_substr($translated_path, -9) === '-password'
+            && (mb_substr($translated_path, -9) === '-password'
+               || mb_substr($translated_path, -4) === 'pass'
+               || mb_substr($translated_path, -4) === 'Pass')
         ) {
             $type = 'password';
         }
@@ -459,7 +462,7 @@ class FormDisplay
         case 'short_text':
         case 'number_text':
         case 'password':
-            $js_line .= '\'' . PMA_escapeJsString($value_default) . '\'';
+            $js_line .= '\'' . Sanitize::escapeJsString($value_default) . '\'';
             break;
         case 'checkbox':
             $js_line .= $value_default ? 'true' : 'false';
@@ -468,10 +471,10 @@ class FormDisplay
             $value_default_js = is_bool($value_default)
                 ? (int) $value_default
                 : $value_default;
-            $js_line .= '[\'' . PMA_escapeJsString($value_default_js) . '\']';
+            $js_line .= '[\'' . Sanitize::escapeJsString($value_default_js) . '\']';
             break;
         case 'list':
-            $js_line .= '\'' . PMA_escapeJsString(implode("\n", $value_default))
+            $js_line .= '\'' . Sanitize::escapeJsString(implode("\n", $value_default))
                 . '\'';
             break;
         }
@@ -637,11 +640,13 @@ class FormDisplay
                 // cast variables to correct type
                 switch ($type) {
                 case 'double':
+                    $_POST[$key] = Util::requestString($_POST[$key]);
                     settype($_POST[$key], 'float');
                     break;
                 case 'boolean':
                 case 'integer':
                     if ($_POST[$key] !== '') {
+                        $_POST[$key] = Util::requestString($_POST[$key]);
                         settype($_POST[$key], $type);
                     }
                     break;
@@ -658,7 +663,7 @@ class FormDisplay
                     break;
                 case 'string':
                 case 'short_string':
-                    $_POST[$key] = trim($_POST[$key]);
+                    $_POST[$key] = Util::requestString($_POST[$key]);
                     break;
                 case 'array':
                     // eliminate empty values and ensure we have an array
@@ -746,7 +751,7 @@ class FormDisplay
      */
     public function getDocLink($path)
     {
-        $test = /*overload*/mb_substr($path, 0, 6);
+        $test = mb_substr($path, 0, 6);
         if ($test == 'Import' || $test == 'Export') {
             return '';
         }
@@ -874,7 +879,7 @@ class FormDisplay
     private function _fillPostArrayParameters($post_values, $key)
     {
         foreach ($post_values as $v) {
-            $v = trim($v);
+            $v = Util::requestString($v);
             if ($v !== '') {
                 $_POST[$key][] = $v;
             }

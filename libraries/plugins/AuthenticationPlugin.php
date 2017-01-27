@@ -7,6 +7,8 @@
  */
 namespace PMA\libraries\plugins;
 
+use PMA\libraries\Sanitize;
+
 /**
  * Provides a common interface that will have to be implemented by all of the
  * authentication plugins.
@@ -53,6 +55,46 @@ abstract class AuthenticationPlugin
     abstract public function authFails();
 
     /**
+     * Perform logout
+     *
+     * @return void
+     */
+    public function logOut()
+    {
+        global $PHP_AUTH_USER, $PHP_AUTH_PW;
+
+        /* Obtain redirect URL (before doing logout) */
+        if (! empty($GLOBALS['cfg']['Server']['LogoutURL'])) {
+            $redirect_url = $GLOBALS['cfg']['Server']['LogoutURL'];
+        } else {
+            $redirect_url = $this->getLoginFormURL();
+        }
+
+        /* Clear credentials */
+        $PHP_AUTH_USER = '';
+        $PHP_AUTH_PW = '';
+
+        /* delete user's choices that were stored in session */
+        $_SESSION = array();
+        if (!defined('TESTSUITE')) {
+            session_destroy();
+        }
+
+        /* Redirect to login form (or configured URL) */
+        PMA_sendHeaderLocation($redirect_url);
+    }
+
+    /**
+     * Returns URL for login form.
+     *
+     * @return string
+     */
+    public function getLoginFormURL()
+    {
+        return './index.php';
+    }
+
+    /**
      * Returns error message for failed authentication.
      *
      * @return string
@@ -69,12 +111,12 @@ abstract class AuthenticationPlugin
         } elseif (!empty($GLOBALS['no_activity'])) {
             return sprintf(
                 __('No activity within %s seconds; please log in again.'),
-                $GLOBALS['cfg']['LoginCookieValidity']
+                intval($GLOBALS['cfg']['LoginCookieValidity'])
             );
         } else {
             $dbi_error = $GLOBALS['dbi']->getError();
             if (!empty($dbi_error)) {
-                return PMA_sanitize($dbi_error);
+                return htmlspecialchars($dbi_error);
             } elseif (isset($GLOBALS['errno'])) {
                 return '#' . $GLOBALS['errno'] . ' '
                 . __('Cannot log in to the MySQL server');
@@ -94,4 +136,26 @@ abstract class AuthenticationPlugin
     public function handlePasswordChange($password)
     {
     }
+
+    /**
+     * Store session access time in session.
+     *
+     * Tries to workaround PHP 5 session garbage collection which
+     * looks at the session file's last modified time
+     *
+     * @return void
+     */
+     public function setSessionAccessTime()
+     {
+        if (isset($_REQUEST['access_time'])) {
+            // Ensure access_time is in range <0, LoginCookieValidity + 1>
+            // to avoid excessive extension of validity.
+            //
+            // Negative values can cause session expiry extension
+            // Too big values can cause overflow and lead to same
+            $_SESSION['last_access_time'] = time() - min(max(0, intval($_REQUEST['access_time'])), $GLOBALS['cfg']['LoginCookieValidity'] + 1);
+        } else {
+            $_SESSION['last_access_time'] = time();
+        }
+     }
 }

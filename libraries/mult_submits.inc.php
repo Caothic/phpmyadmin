@@ -7,14 +7,12 @@
  */
 use PMA\libraries\Message;
 use PMA\libraries\Response;
-use PMA\libraries\PMA_String;
 
 if (! defined('PHPMYADMIN')) {
     exit;
 }
 
 require_once 'libraries/transformations.lib.php';
-require_once 'libraries/bookmark.lib.php';
 require_once 'libraries/sql.lib.php';
 require_once 'libraries/mult_submits.lib.php';
 
@@ -41,6 +39,7 @@ foreach ($request_params as $one_request_param) {
         $GLOBALS[$one_request_param] = $_REQUEST[$one_request_param];
     }
 }
+$response = Response::getInstance();
 
 global $db, $table,  $clause_is_unique, $from_prefix, $goto,
        $mult_btn, $original_sql_query, $query_type, $reload,
@@ -52,17 +51,17 @@ global $db, $table,  $clause_is_unique, $from_prefix, $goto,
  */
 if (! empty($submit_mult)
     && $submit_mult != __('With selected:')
-    && (! empty($selected_db)
+    && (! empty($_REQUEST['selected_dbs'])
     || ! empty($_POST['selected_tbl'])
     || ! empty($selected_fld)
     || ! empty($_REQUEST['rows_to_delete']))
 ) {
     define('PMA_SUBMIT_MULT', 1);
-    if (isset($selected_db) && !empty($selected_db)) {
+    if (! empty($_REQUEST['selected_dbs'])) {
         // coming from server database view - do something with
         // selected databases
-        $selected     = $selected_db;
-        $what         = 'drop_db';
+        $selected   = $_REQUEST['selected_dbs'];
+        $query_type = 'drop_db';
     } elseif (! empty($_POST['selected_tbl'])) {
         // coming from database structure view - do something with
         // selected tables
@@ -89,6 +88,22 @@ if (! empty($submit_mult)
             unset($submit_mult);
             include 'db_export.php';
             exit;
+        case 'copy_tbl':
+            $views = $GLOBALS['dbi']->getVirtualTables($db);
+            list($full_query, $reload, $full_query_views)
+                = PMA_getQueryFromSelected(
+                    $submit_mult, $table, $selected, $views
+                );
+            $_url_params = PMA_getUrlParams(
+                $submit_mult, $reload, $action, $db, $table, $selected, $views,
+                isset($original_sql_query)? $original_sql_query : null,
+                isset($original_url_query)? $original_url_query : null
+            );
+            $response->disable();
+            $response->addHTML(
+                PMA_getHtmlForCopyMultipleTables($action, $_url_params)
+            );
+            exit;
         case 'show_create':
             $show_create = PMA\libraries\Template::get(
                 'database/structure/show_create'
@@ -100,7 +115,6 @@ if (! empty($submit_mult)
                     )
                 );
             // Send response to client.
-            $response = PMA\libraries\Response::getInstance();
             $response->addJSON('message', $show_create);
             exit;
         case 'sync_unique_columns_central_list':
@@ -144,13 +158,11 @@ $views = $GLOBALS['dbi']->getVirtualTables($db);
 if (!empty($submit_mult) && !empty($what)) {
     unset($message);
 
-    /** @var String $pmaString */
-    $pmaString = $GLOBALS['PMA_String'];
-    if (/*overload*/mb_strlen($table)) {
+    if (strlen($table) > 0) {
         include './libraries/tbl_common.inc.php';
         $url_query .= '&amp;goto=tbl_sql.php&amp;back=tbl_sql.php';
         include './libraries/tbl_info.inc.php';
-    } elseif (/*overload*/mb_strlen($db)) {
+    } elseif (strlen($db) > 0) {
         include './libraries/db_common.inc.php';
 
         list(
@@ -182,13 +194,14 @@ if (!empty($submit_mult) && !empty($what)) {
         isset($original_url_query)? $original_url_query : null
     );
 
-    $response = PMA\libraries\Response::getInstance();
 
     if ($what == 'replace_prefix_tbl' || $what == 'copy_tbl_change_prefix') {
+        $response->disable();
         $response->addHTML(
-            PMA_getHtmlForReplacePrefixTable($what, $action, $_url_params)
+            PMA_getHtmlForReplacePrefixTable($action, $_url_params)
         );
     } elseif ($what == 'add_prefix_tbl') {
+        $response->disable();
         $response->addHTML(PMA_getHtmlForAddPrefixTable($action, $_url_params));
     } else {
         $response->addHTML(
@@ -255,21 +268,8 @@ if (!empty($submit_mult) && !empty($what)) {
     }
 
     if ($execute_query_later) {
-
-        /**
-         * Parse and analyze the query
-         */
-        include_once 'libraries/parse_analyze.lib.php';
-        list(
-            $analyzed_sql_results,
-            $db,
-            $table
-        ) = PMA_parseAnalyze($sql_query, $db);
-        // @todo: possibly refactor
-        extract($analyzed_sql_results);
-
         PMA_executeQueryAndSendQueryResponse(
-            $analyzed_sql_results, // analyzed_sql_results
+            null, // analyzed_sql_results
             false, // is_gotofile
             $db, // db
             $table, // table
@@ -310,7 +310,7 @@ if (!empty($submit_mult) && !empty($what)) {
     if ($rebuild_database_list) {
         // avoid a problem with the database list navigator
         // when dropping a db from server_databases
-        $GLOBALS['pma']->databases->build();
+        $GLOBALS['dblist']->databases->build();
     }
 } else {
     if (isset($submit_mult)

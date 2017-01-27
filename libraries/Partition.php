@@ -153,8 +153,8 @@ class Partition extends SubPartition
         if (Partition::havePartitioning()) {
             $result = $GLOBALS['dbi']->fetchResult(
                 "SELECT * FROM `information_schema`.`PARTITIONS`"
-                . " WHERE `TABLE_SCHEMA` = '" . Util::sqlAddSlashes($db)
-                . "' AND `TABLE_NAME` = '" . Util::sqlAddSlashes($table) . "'"
+                . " WHERE `TABLE_SCHEMA` = '" . $GLOBALS['dbi']->escapeString($db)
+                . "' AND `TABLE_NAME` = '" . $GLOBALS['dbi']->escapeString($table) . "'"
             );
             if ($result) {
                 $partitionMap = array();
@@ -193,9 +193,9 @@ class Partition extends SubPartition
     {
         if (Partition::havePartitioning()) {
             return $GLOBALS['dbi']->fetchResult(
-                "SELECT `PARTITION_NAME` FROM `information_schema`.`PARTITIONS`"
-                . " WHERE `TABLE_SCHEMA` = '" . Util::sqlAddSlashes($db)
-                . "' AND `TABLE_NAME` = '" . Util::sqlAddSlashes($table) . "'"
+                "SELECT DISTINCT `PARTITION_NAME` FROM `information_schema`.`PARTITIONS`"
+                . " WHERE `TABLE_SCHEMA` = '" . $GLOBALS['dbi']->escapeString($db)
+                . "' AND `TABLE_NAME` = '" . $GLOBALS['dbi']->escapeString($table) . "'"
             );
         } else {
             return array();
@@ -215,8 +215,9 @@ class Partition extends SubPartition
         if (Partition::havePartitioning()) {
             $partition_method = $GLOBALS['dbi']->fetchResult(
                 "SELECT `PARTITION_METHOD` FROM `information_schema`.`PARTITIONS`"
-                . " WHERE `TABLE_SCHEMA` = '" . Util::sqlAddSlashes($db) . "'"
-                . " AND `TABLE_NAME` = '" . Util::sqlAddSlashes($table) . "'"
+                . " WHERE `TABLE_SCHEMA` = '" . $GLOBALS['dbi']->escapeString($db) . "'"
+                . " AND `TABLE_NAME` = '" . $GLOBALS['dbi']->escapeString($table) . "'"
+                . " LIMIT 1"
             );
             if (! empty($partition_method)) {
                 return $partition_method[0];
@@ -247,7 +248,7 @@ class Partition extends SubPartition
                     $have_partitioning = true;
                 }
             } else {
-                // see http://dev.mysql.com/doc/refman/5.6/en/partitioning.html
+                // see https://dev.mysql.com/doc/refman/5.6/en/partitioning.html
                 $plugins = $GLOBALS['dbi']->fetchResult("SHOW PLUGINS");
                 foreach ($plugins as $value) {
                     if ($value['Name'] == 'partition') {

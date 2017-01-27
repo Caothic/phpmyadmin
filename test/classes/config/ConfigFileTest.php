@@ -11,14 +11,14 @@
  */
 use PMA\libraries\config\ConfigFile;
 
-require_once 'libraries/php-gettext/gettext.inc';
+require_once 'test/PMATestCase.php';
 
 /**
  * Tests for Config File Management
  *
  * @package PhpMyAdmin-test
  */
-class ConfigFileTest extends PHPUnit_Framework_TestCase
+class ConfigFileTest extends PMATestCase
 {
     /**
      * Any valid key that exists in config.default.php and isn't empty
@@ -41,7 +41,6 @@ class ConfigFileTest extends PHPUnit_Framework_TestCase
     protected function setUp()
     {
         $GLOBALS['server'] = 1;
-        $GLOBALS['cfg']['AvailableCharsets'] = array();
         $this->object = new ConfigFile();
     }
 
@@ -507,7 +506,7 @@ class ConfigFileTest extends PHPUnit_Framework_TestCase
             )
         );
         $this->assertEquals(
-            "mysqli://testUser:***@example.com:21",
+            "mysqli://testUser@example.com:21",
             $this->object->getServerDSN(1)
         );
 
@@ -520,14 +519,33 @@ class ConfigFileTest extends PHPUnit_Framework_TestCase
                         "connect_type" => "socket",
                         "host" => "example.com",
                         "port" => "21",
-                        "nopassword" => "yes",
-                        "socket" => "123"
+                        "socket" => "123",
+                        "password" => "",
                     )
                 )
             )
         );
         $this->assertEquals(
             "mysqli://testUser@123",
+            $this->object->getServerDSN(1)
+        );
+
+        $this->object->updateWithGlobalConfig(
+            array(
+                'Servers' => array(
+                    1 => array(
+                        "auth_type" => "config",
+                        "user" => "testUser",
+                        "connect_type" => "tcp",
+                        "host" => "example.com",
+                        "port" => "21",
+                        "password" => "testPass"
+                    )
+                )
+            )
+        );
+        $this->assertEquals(
+            "mysqli://testUser:***@example.com:21",
             $this->object->getServerDSN(1)
         );
     }
@@ -556,17 +574,6 @@ class ConfigFileTest extends PHPUnit_Framework_TestCase
             'testData',
             $this->object->getServerName(1)
         );
-    }
-
-    /**
-     * Test for ConfigFile::getFilePath
-     *
-     * @return void
-     * @test
-     */
-    public function testGetFilePath()
-    {
-        $this->assertNotEmpty($this->object->getFilePath());
     }
 
     /**

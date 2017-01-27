@@ -14,11 +14,11 @@ require './lib/common.inc.php';
 $validators = array();
 require './libraries/config/Validator.php';
 
-header('Content-type: application/json');
+PMA_headerJSON();
 
-$ids = isset($_POST['id']) ? $_POST['id'] : null;
+$ids = PMA_isValid($_POST['id'], 'scalar') ? $_POST['id'] : null;
 $vids = explode(',', $ids);
-$vals = isset($_POST['values']) ? $_POST['values'] : null;
+$vals = PMA_isValid($_POST['values'], 'scalar') ? $_POST['values'] : null;
 $values = json_decode($vals);
 if (!($values instanceof stdClass)) {
     PMA_fatalError(__('Wrong data'));
@@ -26,6 +26,9 @@ if (!($values instanceof stdClass)) {
 $values = (array)$values;
 $result = PMA\libraries\config\Validator::validate($GLOBALS['ConfigFile'], $vids, $values, true);
 if ($result === false) {
-    $result = 'Wrong data or no validation for ' . $vids;
+    $result = sprintf(
+        __('Wrong data or no validation for %s'),
+        implode(',', $vids)
+    );
 }
 echo $result !== true ? json_encode($result) : '';

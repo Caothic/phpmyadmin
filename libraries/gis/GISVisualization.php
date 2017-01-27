@@ -10,10 +10,7 @@ namespace PMA\libraries\gis;
 
 use PMA\libraries\Util;
 use \TCPDF;
-
-if (!defined('PHPMYADMIN')) {
-    exit;
-}
+use PMA\libraries\Sanitize;
 
 require_once 'libraries/sql.lib.php';
 
@@ -32,34 +29,32 @@ class GISVisualization
     /**
      * @var array   Set of default settings values are here.
      */
-    private $_settings
-        = array(
-
-            // Array of colors to be used for GIS visualizations.
-            'colors' => array(
-                '#B02EE0',
-                '#E0642E',
-                '#E0D62E',
-                '#2E97E0',
-                '#BCE02E',
-                '#E02E75',
-                '#5CE02E',
-                '#E0B02E',
-                '#0022E0',
-                '#726CB1',
-                '#481A36',
-                '#BAC658',
-                '#127224',
-                '#825119',
-                '#238C74',
-                '#4C489B',
-                '#87C9BF',
-            ),
-            // The width of the GIS visualization.
-            'width'  => 600,
-            // The height of the GIS visualization.
-            'height' => 450,
-        );
+    private $_settings = array(
+        // Array of colors to be used for GIS visualizations.
+        'colors' => array(
+            '#B02EE0',
+            '#E0642E',
+            '#E0D62E',
+            '#2E97E0',
+            '#BCE02E',
+            '#E02E75',
+            '#5CE02E',
+            '#E0B02E',
+            '#0022E0',
+            '#726CB1',
+            '#481A36',
+            '#BAC658',
+            '#127224',
+            '#825119',
+            '#238C74',
+            '#4C489B',
+            '#87C9BF',
+        ),
+        // The width of the GIS visualization.
+        'width'  => 600,
+        // The height of the GIS visualization.
+        'height' => 450,
+    );
     /**
      * @var array   Options that the user has specified.
      */
@@ -215,6 +210,10 @@ class GISVisualization
     {
         $modified_result = $GLOBALS['dbi']->tryQuery($this->_modified_sql);
 
+        if ($modified_result === false) {
+            return array();
+        }
+
         $data = array();
         while ($row = $GLOBALS['dbi']->fetchAssoc($modified_result)) {
             $data[] = $row;
@@ -251,20 +250,19 @@ class GISVisualization
      */
     private function _sanitizeName($file_name, $ext)
     {
-        $file_name = PMA_sanitizeFilename($file_name);
+        $file_name = Sanitize::sanitizeFilename($file_name);
 
         // Check if the user already added extension;
         // get the substring where the extension would be if it was included
-        $extension_start_pos
-            = /*overload*/mb_strlen($file_name) - /*overload*/mb_strlen($ext) - 1;
+        $extension_start_pos = mb_strlen($file_name) - mb_strlen($ext) - 1;
         $user_extension
-            = /*overload*/mb_substr(
+            = mb_substr(
                 $file_name,
                 $extension_start_pos,
-                /*overload*/mb_strlen($file_name)
+                mb_strlen($file_name)
             );
         $required_extension = "." . $ext;
-        if (/*overload*/mb_strtolower($user_extension) != $required_extension) {
+        if (mb_strtolower($user_extension) != $required_extension) {
             $file_name .= $required_extension;
         }
 
@@ -297,18 +295,18 @@ class GISVisualization
     {
         $this->init();
 
-        $output = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>' . "\n";
-        $output .= '<svg version="1.1" xmlns:svg="http://www.w3.org/2000/svg"'
+        $output = '<?xml version="1.0" encoding="UTF-8" standalone="no"?' . ' >'
+            . "\n"
+            . '<svg version="1.1" xmlns:svg="http://www.w3.org/2000/svg"'
             . ' xmlns="http://www.w3.org/2000/svg"'
-            . ' width="' . $this->_settings['width'] . '"'
-            . ' height="' . $this->_settings['height'] . '">';
-        $output .= '<g id="groupPanel">';
+            . ' width="' . intval($this->_settings['width']) . '"'
+            . ' height="' . intval($this->_settings['height']) . '">'
+            . '<g id="groupPanel">';
 
         $scale_data = $this->_scaleDataSet($this->_data);
         $output .= $this->_prepareDataSet($this->_data, $scale_data, 'svg', '');
 
-        $output .= '</g>';
-        $output .= '</svg>';
+        $output .= '</g></svg>';
 
         return $output;
     }
@@ -416,6 +414,8 @@ class GISVisualization
     /**
      * Get the code for visualization with OpenLayers.
      *
+     * @todo Should return JSON to avoid eval() in gis_data_editor.js
+     *
      * @return string the code for visualization with OpenLayers
      * @access public
      */
@@ -439,9 +439,13 @@ class GISVisualization
             . 'var map = new OpenLayers.Map("openlayersmap", options);'
             . 'var layerNone = new OpenLayers.Layer.Boxes('
             . '"None", {isBaseLayer: true});'
-            . 'var layerMapnik = new OpenLayers.Layer.OSM.Mapnik("Mapnik");'
-            . 'var layerCycleMap = new OpenLayers.Layer.OSM.CycleMap("CycleMap");'
-            . 'map.addLayers([layerMapnik,layerCycleMap,layerNone]);'
+            . 'var layerOSM = new OpenLayers.Layer.OSM("OSM",'
+            . '['
+            . '"https://a.tile.openstreetmap.org/${z}/${x}/${y}.png",'
+            . '"https://b.tile.openstreetmap.org/${z}/${x}/${y}.png",'
+            . '"https://c.tile.openstreetmap.org/${z}/${x}/${y}.png"'
+            . ']);'
+            . 'map.addLayers([layerOSM,layerNone]);'
             . 'var vectorLayer = new OpenLayers.Layer.Vector("Data");'
             . 'var bound;';
         $output .= $this->_prepareDataSet($this->_data, $scale_data, 'ol', '');
@@ -468,8 +472,6 @@ class GISVisualization
     public function toFileAsPdf($file_name)
     {
         $this->init();
-
-        include_once './libraries/tcpdf/tcpdf.php';
 
         // create pdf
         $pdf = new TCPDF(
@@ -551,12 +553,11 @@ class GISVisualization
 
             // Figure out the data type
             $ref_data = $row[$this->_settings['spatialColumn']];
-            $type_pos
-                = /*overload*/
-                mb_stripos($ref_data, '(');
-            $type
-                = /*overload*/
-                mb_substr($ref_data, 0, $type_pos);
+            $type_pos = mb_strpos($ref_data, '(');
+            if ($type_pos === false) {
+                continue;
+            }
+            $type = mb_substr($ref_data, 0, $type_pos);
 
             $gis_obj = GISFactory::factory($type);
             if (!$gis_obj) {
@@ -641,12 +642,11 @@ class GISVisualization
 
             // Figure out the data type
             $ref_data = $row[$this->_settings['spatialColumn']];
-            $type_pos
-                = /*overload*/
-                mb_stripos($ref_data, '(');
-            $type
-                = /*overload*/
-                mb_substr($ref_data, 0, $type_pos);
+            $type_pos = mb_strpos($ref_data, '(');
+            if ($type_pos === false) {
+                continue;
+            }
+            $type = mb_substr($ref_data, 0, $type_pos);
 
             $gis_obj = GISFactory::factory($type);
             if (!$gis_obj) {

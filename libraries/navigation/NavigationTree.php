@@ -15,6 +15,9 @@ use PMA\libraries\navigation\nodes\NodeViewContainer;
 use PMA\libraries\RecentFavoriteTable;
 use PMA\libraries\Response;
 use PMA\libraries\Util;
+use PMA\libraries\URL;
+
+require_once 'libraries/check_user_privileges.lib.php';
 
 /**
  * Displays a collapsible of database objects in the navigation frame
@@ -171,10 +174,13 @@ class NavigationTree
          * @todo describe a scenario where this code is executed
          */
         if (!$GLOBALS['cfg']['Server']['DisableIS']) {
+            $dbSeparator = $GLOBALS['dbi']->escapeString(
+                $GLOBALS['cfg']['NavigationTreeDbSeparator']
+            );
             $query = "SELECT (COUNT(DB_first_level) DIV %d) * %d ";
             $query .= "from ( ";
             $query .= " SELECT distinct SUBSTRING_INDEX(SCHEMA_NAME, ";
-            $query .= " '{$GLOBALS['cfg']['NavigationTreeDbSeparator']}', 1) ";
+            $query .= " '%s', 1) ";
             $query .= " DB_first_level ";
             $query .= " FROM INFORMATION_SCHEMA.SCHEMATA ";
             $query .= " WHERE `SCHEMA_NAME` < '%s' ";
@@ -185,7 +191,8 @@ class NavigationTree
                     $query,
                     (int)$GLOBALS['cfg']['FirstLevelNavigationItems'],
                     (int)$GLOBALS['cfg']['FirstLevelNavigationItems'],
-                    Util::sqlAddSlashes($GLOBALS['db'])
+                    $dbSeparator,
+                    $GLOBALS['dbi']->escapeString($GLOBALS['db'])
                 )
             );
 
@@ -691,9 +698,9 @@ class NavigationTree
             foreach ($node->children as $child) {
                 $prefix_pos = false;
                 foreach ($separators as $separator) {
-                    $sep_pos = /*overload*/mb_strpos($child->name, $separator);
+                    $sep_pos = mb_strpos($child->name, $separator);
                     if ($sep_pos != false
-                        && $sep_pos != /*overload*/mb_strlen($child->name)
+                        && $sep_pos != mb_strlen($child->name)
                         && $sep_pos != 0
                         && ($prefix_pos == false || $sep_pos < $prefix_pos)
                     ) {
@@ -701,9 +708,7 @@ class NavigationTree
                     }
                 }
                 if ($prefix_pos !== false) {
-                    $prefix
-                        = /*overload*/
-                        mb_substr($child->name, 0, $prefix_pos);
+                    $prefix = mb_substr($child->name, 0, $prefix_pos);
                     if (!isset($prefixes[$prefix])) {
                         $prefixes[$prefix] = 1;
                     } else {
@@ -782,14 +787,12 @@ class NavigationTree
                     $separatorLength = strlen($separator);
                     // FIXME: this could be more efficient
                     foreach ($node->children as $child) {
-                        $keySeparatorLength
-                            = /*overload*/mb_strlen($key) + $separatorLength;
-                        $name_substring
-                            = /*overload*/mb_substr(
-                                $child->name,
-                                0,
-                                $keySeparatorLength
-                            );
+                        $keySeparatorLength = mb_strlen($key) + $separatorLength;
+                        $name_substring = mb_substr(
+                            $child->name,
+                            0,
+                            $keySeparatorLength
+                        );
                         if (($name_substring != $key . $separator
                             && $child->name != $key)
                             || $child->type != Node::OBJECT
@@ -801,7 +804,6 @@ class NavigationTree
                         unset($class);
                         $new_child = NodeFactory::getInstance(
                             $className,
-                            /*overload*/
                             mb_substr(
                                 $child->name,
                                 $keySeparatorLength
@@ -977,7 +979,7 @@ class NavigationTree
             $retval .= $paths['aPath_clean'][2];
             $retval .= "</span>";
             $retval .= "<span class='hide pos2_value'>";
-            $retval .= $node->pos2;
+            $retval .= htmlspecialchars($node->pos2);
             $retval .= "</span>";
         }
         if (isset($paths['aPath_clean'][4])) {
@@ -985,7 +987,7 @@ class NavigationTree
             $retval .= $paths['aPath_clean'][4];
             $retval .= "</span>";
             $retval .= "<span class='hide pos3_value'>";
-            $retval .= $node->pos3;
+            $retval .= htmlspecialchars($node->pos3);
             $retval .= "</span>";
         }
 
@@ -1035,9 +1037,10 @@ class NavigationTree
         if ($node->hasSiblings()
             || $node->realParent() === false
         ) {
+            $response = Response::getInstance();
             if ($node->type == Node::CONTAINER
                 && count($node->children) == 0
-                && $GLOBALS['is_ajax_request'] != true
+                && ! $response->isAjax()
             ) {
                 return '';
             }
@@ -1262,12 +1265,11 @@ class NavigationTree
         $children = $this->_tree->children;
         array_shift($children);
         $url_params = array(
-            'token'  => $_SESSION[' PMA_token '],
             'server' => $GLOBALS['server'],
         );
         $retval .= '<div id="pma_navigation_db_select">';
         $retval .= '<form action="index.php">';
-        $retval .= PMA_getHiddenFields($url_params);
+        $retval .= URL::getHiddenFields($url_params);
         $retval .= '<select name="db" class="hide" id="navi_db_select">'
             . '<option value="" dir="' . $GLOBALS['text_dir'] . '">'
             . '(' . __('Databases') . ') ...</option>' . "\n";
@@ -1355,17 +1357,10 @@ class NavigationTree
             );
             $retval .= '<li class="fast_filter db_fast_filter">';
             $retval .= '<form class="ajax fast_filter">';
-            $retval .= PMA_getHiddenFields($url_params);
+            $retval .= URL::getHiddenInputs($url_params);
             $retval .= '<input class="searchClause" type="text"';
             $retval .= ' name="searchClause" accesskey="q"';
-            // allow html5 placeholder attribute
-            $placeholder_key = 'value';
-            if (PMA_USR_BROWSER_AGENT !== 'IE'
-                || PMA_USR_BROWSER_VER > 9
-            ) {
-                $placeholder_key = 'placeholder';
-            }
-            $retval .= " $placeholder_key='"
+            $retval .= " placeholder='"
                 . __("Type to filter these, Enter to search all");
             $retval .= "' />";
             $retval .= '<span title="' . __('Clear fast filter') . '">X</span>';
@@ -1394,15 +1389,10 @@ class NavigationTree
             );
             $retval .= "<li class='fast_filter'>";
             $retval .= "<form class='ajax fast_filter'>";
-            $retval .= PMA_getHiddenFields($url_params);
+            $retval .= URL::getHiddenFields($url_params);
             $retval .= "<input class='searchClause' type='text'";
             $retval .= " name='searchClause2'";
-            // allow html5 placeholder attribute
-            $placeholder_key = 'value';
-            if (PMA_USR_BROWSER_AGENT !== 'IE' || PMA_USR_BROWSER_VER > 9) {
-                $placeholder_key = 'placeholder';
-            }
-            $retval .= " $placeholder_key='"
+            $retval .= " placeholder='"
                 . __("Type to filter these, Enter to search all") . "' />";
             $retval .= "<span title='" . __('Clear fast filter') . "'>X</span>";
             $retval .= "</form>";

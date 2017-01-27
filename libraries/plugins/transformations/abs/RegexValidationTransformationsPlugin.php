@@ -10,10 +10,6 @@ namespace PMA\libraries\plugins\transformations\abs;
 
 use PMA\libraries\plugins\IOTransformationsPlugin;
 
-if (!defined('PHPMYADMIN')) {
-    exit;
-}
-
 /**
  * Provides common methods for all of the regex validation
  * input transformations plugins.
@@ -54,7 +50,7 @@ abstract class RegexValidationTransformationsPlugin extends IOTransformationsPlu
             $this->success = false;
             $this->error = sprintf(
                 __('Validation failed for the input string %s.'),
-                $buffer
+                htmlspecialchars($buffer)
             );
         }
 

@@ -8,9 +8,8 @@
 use PMA\libraries\plugins\export\ExportPhparray;
 
 require_once 'libraries/export.lib.php';
-require_once 'libraries/php-gettext/gettext.inc';
 require_once 'libraries/config.default.php';
-require_once 'export.php';
+require_once 'test/PMATestCase.php';
 
 /**
  * tests for PMA\libraries\plugins\export\ExportPhparray class
@@ -18,7 +17,7 @@ require_once 'export.php';
  * @package PhpMyAdmin-test
  * @group medium
  */
-class ExportPhparrayTest extends PHPUnit_Framework_TestCase
+class ExportPhparrayTest extends PMATestCase
 {
     protected $object;
 
@@ -163,7 +162,7 @@ class ExportPhparrayTest extends PHPUnit_Framework_TestCase
      */
     public function testExportDBHeader()
     {
-        $GLOBALS['crlf'] = ' ';
+        $GLOBALS['crlf'] = "\n";
 
         ob_start();
         $this->assertTrue(
@@ -172,7 +171,7 @@ class ExportPhparrayTest extends PHPUnit_Framework_TestCase
         $result = ob_get_clean();
 
         $this->assertContains(
-            '// Database `db` ',
+            "/**\n * Database `db`\n */",
             $result
         );
     }
@@ -253,7 +252,7 @@ class ExportPhparrayTest extends PHPUnit_Framework_TestCase
         $result = ob_get_clean();
 
         $this->assertEquals(
-            "\n" . '// `db`.`table`' . "\n" .
+            "\n" . '/* `db`.`table` */' . "\n" .
             '$table = array('  . "\n" .
             '  array(\'c1\' => 1,\'\' => \'a\')' . "\n" .
             ');' . "\n",

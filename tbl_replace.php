@@ -12,6 +12,7 @@
  * @package PhpMyAdmin
  */
 use PMA\libraries\plugins\IOTransformationsPlugin;
+use PMA\libraries\Response;
 use PMA\libraries\Table;
 
 /**
@@ -35,7 +36,7 @@ $GLOBALS['dbi']->selectDb($GLOBALS['db']);
  */
 $goto_include = false;
 
-$response = PMA\libraries\Response::getInstance();
+$response = Response::getInstance();
 $header = $response->getHeader();
 $scripts = $header->getScripts();
 $scripts->addFile('makegrid.js');
@@ -181,6 +182,10 @@ foreach ($loop_array as $rownumber => $where_clause) {
         = isset($_REQUEST['auto_increment']['multi_edit'][$rownumber])
         ? $_REQUEST['auto_increment']['multi_edit'][$rownumber]
         : null;
+    $multi_edit_virtual
+        = isset($_REQUEST['virtual']['multi_edit'][$rownumber])
+        ? $_REQUEST['virtual']['multi_edit'][$rownumber]
+        : null;
 
     // When a select field is nullified, it's not present in $_REQUEST
     // so initialize it; this way, the foreach($multi_edit_columns) will process it
@@ -240,7 +245,7 @@ foreach ($loop_array as $rownumber => $where_clause) {
         }
 
         if ($file_to_insert->isError()) {
-            $message .= $file_to_insert->getError();
+            $insert_errors[] = $file_to_insert->getError();
         }
         // delete $file_to_insert temporary variable
         $file_to_insert->cleanUp();
@@ -250,7 +255,7 @@ foreach ($loop_array as $rownumber => $where_clause) {
             $current_value, $multi_edit_auto_increment,
             $rownumber, $multi_edit_columns_name, $multi_edit_columns_null,
             $multi_edit_columns_null_prev, $is_insert,
-            $using_key, $where_clause, $table
+            $using_key, $where_clause, $table, $multi_edit_funcs
         );
 
         $current_value_as_an_array = PMA_getCurrentValueAsAnArrayForMultipleEdit(
@@ -259,13 +264,16 @@ foreach ($loop_array as $rownumber => $where_clause) {
             $gis_from_wkb_functions, $func_optional_param, $func_no_param, $key
         );
 
-        list($query_values, $query_fields)
-            = PMA_getQueryValuesForInsertAndUpdateInMultipleEdit(
-                $multi_edit_columns_name, $multi_edit_columns_null, $current_value,
-                $multi_edit_columns_prev, $multi_edit_funcs, $is_insert,
-                $query_values, $query_fields, $current_value_as_an_array,
-                $value_sets, $key, $multi_edit_columns_null_prev
-            );
+        if (! isset($multi_edit_virtual) || ! isset($multi_edit_virtual[$key])) {
+            list($query_values, $query_fields)
+                = PMA_getQueryValuesForInsertAndUpdateInMultipleEdit(
+                    $multi_edit_columns_name, $multi_edit_columns_null,
+                    $current_value, $multi_edit_columns_prev, $multi_edit_funcs,
+                    $is_insert, $query_values, $query_fields,
+                    $current_value_as_an_array, $value_sets, $key,
+                    $multi_edit_columns_null_prev
+                );
+        }
         if (isset($multi_edit_columns_null[$key])) {
             $multi_edit_columns[$key] = null;
         }
@@ -304,6 +312,10 @@ if ($is_insert && count($value_sets) > 0) {
     //
     // Note: logic passes here for inline edit
     $message = PMA\libraries\Message::success(__('No change'));
+    // Avoid infinite recursion
+    if ($goto_include == 'tbl_replace.php') {
+        $goto_include = 'tbl_change.php';
+    }
     $active_page = $goto_include;
     include '' . PMA_securePath($goto_include);
     exit;
@@ -335,18 +347,18 @@ if ($is_insert && (count($value_sets) > 0 || $row_skipped)) {
 }
 if ($row_skipped) {
     $goto_include = 'tbl_change.php';
-    $message->addMessages($insert_errors, '<br />');
+    $message->addMessagesString($insert_errors, '<br />');
     $message->isError(true);
 }
 
 $message->addMessages($last_messages, '<br />');
 
 if (! empty($warning_messages)) {
-    $message->addMessages($warning_messages, '<br />');
+    $message->addMessagesString($warning_messages, '<br />');
     $message->isError(true);
 }
 if (! empty($error_messages)) {
-    $message->addMessages($error_messages);
+    $message->addMessagesString($error_messages);
     $message->isError(true);
 }
 unset(
@@ -433,7 +445,6 @@ if ($response->isAjax() && ! isset($_POST['ajax_page_request'])) {
     $extra_data['sql_query']
         = PMA\libraries\Util::getMessage($message, $GLOBALS['display_query']);
 
-    $response = PMA\libraries\Response::getInstance();
     $response->setRequestStatus($message->isSuccess());
     $response->addJSON('message', $message);
     $response->addJSON($extra_data);
@@ -448,7 +459,6 @@ if (! empty($return_to_sql_query)) {
 }
 
 $scripts->addFile('tbl_change.js');
-$scripts->addFile('big_ints.js');
 
 $active_page = $goto_include;
 

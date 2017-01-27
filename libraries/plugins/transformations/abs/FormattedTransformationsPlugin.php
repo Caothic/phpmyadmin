@@ -10,10 +10,6 @@ namespace PMA\libraries\plugins\transformations\abs;
 
 use PMA\libraries\plugins\TransformationsPlugin;
 
-if (!defined('PHPMYADMIN')) {
-    exit;
-}
-
 /**
  * Provides common methods for all of the formatted transformations plugins.
  *
@@ -46,7 +42,9 @@ abstract class FormattedTransformationsPlugin extends TransformationsPlugin
      */
     public function applyTransformation($buffer, $options = array(), $meta = '')
     {
-        return $buffer;
+        return '<iframe srcdoc="'
+            . strtr($buffer, '"', '\'')
+            . '" sandbox=""></iframe>';
     }
 
 

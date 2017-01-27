@@ -48,15 +48,14 @@ class ExportPhparray extends ExportPlugin
         // create the root group that will be the options field for
         // $exportPluginProperties
         // this will be shown as "Format specific options"
-        $exportSpecificOptions = new OptionsPropertyRootGroup();
-        $exportSpecificOptions->setName("Format Specific Options");
+        $exportSpecificOptions = new OptionsPropertyRootGroup(
+            "Format Specific Options"
+        );
 
         // general options main group
-        $generalOptions = new OptionsPropertyMainGroup();
-        $generalOptions->setName("general_opts");
+        $generalOptions = new OptionsPropertyMainGroup("general_opts");
         // create primary items and add them to the group
-        $leaf = new HiddenPropertyItem();
-        $leaf->setName("structure_or_data");
+        $leaf = new HiddenPropertyItem("structure_or_data");
         $generalOptions->addProperty($leaf);
         // add the main group to the root group
         $exportSpecificOptions->addProperty($generalOptions);
@@ -65,6 +64,19 @@ class ExportPhparray extends ExportPlugin
         $exportPluginProperties->setOptions($exportSpecificOptions);
         $this->properties = $exportPluginProperties;
     }
+
+    /**
+     * Removes end of comment from a string
+     *
+     * @param string $string String to replace
+     *
+     * @return string
+     */
+    public function commentString($string)
+    {
+        return strtr($string, '*/', '-');
+    }
+
 
     /**
      * Outputs export header
@@ -77,7 +89,7 @@ class ExportPhparray extends ExportPlugin
             '<?php' . $GLOBALS['crlf']
             . '/**' . $GLOBALS['crlf']
             . ' * Export to PHP Array plugin for PHPMyAdmin' . $GLOBALS['crlf']
-            . ' * @version 0.2b' . $GLOBALS['crlf']
+            . ' * @version ' . PMA_VERSION . $GLOBALS['crlf']
             . ' */' . $GLOBALS['crlf'] . $GLOBALS['crlf']
         );
 
@@ -108,9 +120,9 @@ class ExportPhparray extends ExportPlugin
             $db_alias = $db;
         }
         PMA_exportOutputHandler(
-            '//' . $GLOBALS['crlf']
-            . '// Database ' . PMA\libraries\Util::backquote($db_alias)
-            . $GLOBALS['crlf'] . '//' . $GLOBALS['crlf']
+            '/**' . $GLOBALS['crlf']
+            . ' * Database ' . $this->commentString(PMA\libraries\Util::backquote($db_alias))
+            . $GLOBALS['crlf'] . ' */' . $GLOBALS['crlf']
         );
 
         return true;
@@ -183,7 +195,7 @@ class ExportPhparray extends ExportPlugin
         }
 
         // fix variable names (based on
-        // http://www.php.net/manual/language.variables.basics.php)
+        // https://secure.php.net/manual/language.variables.basics.php)
         if (!preg_match(
             '/^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*$/',
             $table_alias
@@ -208,9 +220,9 @@ class ExportPhparray extends ExportPlugin
         $buffer = '';
         $record_cnt = 0;
         // Output table name as comment
-        $buffer .= $crlf . '// '
-            . PMA\libraries\Util::backquote($db_alias) . '.'
-            . PMA\libraries\Util::backquote($table_alias) . $crlf;
+        $buffer .= $crlf . '/* '
+            . $this->commentString(PMA\libraries\Util::backquote($db_alias)) . '.'
+            . $this->commentString(PMA\libraries\Util::backquote($table_alias)) . ' */' . $crlf;
         $buffer .= '$' . $tablefixed . ' = array(';
 
         while ($record = $GLOBALS['dbi']->fetchRow($result)) {

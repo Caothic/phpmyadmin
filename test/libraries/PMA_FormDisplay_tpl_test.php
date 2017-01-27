@@ -9,11 +9,7 @@
 use PMA\libraries\Theme;
 
 require_once 'libraries/config/FormDisplay.tpl.php';
-require_once 'libraries/php-gettext/gettext.inc';
 require_once 'libraries/user_preferences.lib.php';
-require_once 'libraries/php-gettext/gettext.inc';
-require_once 'libraries/url_generating.lib.php';
-require_once 'libraries/js_escape.lib.php';
 
 /**
  * Tests for FromDisplay.tpl.php
@@ -29,24 +25,18 @@ class PMA_FormDisplay_Tpl_Test extends PHPUnit_Framework_TestCase
      */
     public function testDisplayFormTop()
     {
-        $_SERVER['REQUEST_URI'] = 'http://www.phpmyadmin.net';
+        $_SERVER['REQUEST_URI'] = 'https://www.phpmyadmin.net';
         $GLOBALS['cfg']['ServerDefault'] = '';
         $result = PMA_displayFormTop(null, 'posted', array(1));
 
         $this->assertContains(
-            '<form method="get" action="http://www.phpmyadmin.net" ' .
+            '<form method="get" action="https://www.phpmyadmin.net" ' .
             'class="config-form disableAjax">',
             $result
         );
 
         $this->assertContains(
             '<input type="hidden" name="tab_hash" value="" />',
-            $result
-        );
-
-        $this->assertContains(
-            '<input type="hidden" name="check_page_refresh"  ' .
-            'id="check_page_refresh" value="" />',
             $result
         );
 
@@ -76,7 +66,7 @@ class PMA_FormDisplay_Tpl_Test extends PHPUnit_Framework_TestCase
         $result = PMA_displayTabsTop(array('one', 'two'));
 
         $this->assertContains(
-            '<ul class="tabs">',
+            '<ul class="tabs"',
             $result
         );
 
@@ -150,14 +140,12 @@ class PMA_FormDisplay_Tpl_Test extends PHPUnit_Framework_TestCase
             $this->markTestSkipped('Cannot modify constant');
         }
 
-        $_SESSION['PMA_Theme'] = new Theme();
-        $GLOBALS['pmaThemeImage'] = 'testImage';
         $GLOBALS['_FormDislayGroup'] = 1;
         $opts = array();
         $opts['errors'] = array('e1');
         $opts['userprefs_allow'] = false;
         $opts['setvalue'] = ':group';
-        $opts['doc'] = "http://doclink";
+        $opts['doc'] = "https://example.com/";
         $opts['comment'] = "testComment";
         $opts['comment_warning'] = true;
         $opts['show_restore_default'] = true;
@@ -177,13 +165,13 @@ class PMA_FormDisplay_Tpl_Test extends PHPUnit_Framework_TestCase
         );
 
         $this->assertContains(
-            '<a href="http://doclink" target="documentation"',
+            '<a href="https://example.com/" target="documentation"',
             $result
         );
 
         $this->assertContains(
-            '<img src="testImageb_help.png" title="Documentation" ' .
-            'alt="Documentation" /',
+            '<img src="themes/dot.gif" title="Documentation" ' .
+            'alt="Documentation" class="icon ic_b_help" /',
             $result
         );
 
@@ -223,7 +211,6 @@ class PMA_FormDisplay_Tpl_Test extends PHPUnit_Framework_TestCase
 
         define('PMA_SETUP', true);
         $GLOBALS['_FormDislayGroup'] = 0;
-        $GLOBALS['cfg']['ThemePath'] = 'themePath';
         $opts = array();
         $opts['errors'] = array();
         $opts['setvalue'] = 'setVal';
@@ -267,7 +254,6 @@ class PMA_FormDisplay_Tpl_Test extends PHPUnit_Framework_TestCase
 
         // short_text
         $GLOBALS['_FormDislayGroup'] = 0;
-        $GLOBALS['cfg']['ThemePath'] = 'themePath';
         $opts = array();
         $opts['errors'] = array();
 
@@ -554,7 +540,7 @@ class PMA_FormDisplay_Tpl_Test extends PHPUnit_Framework_TestCase
         $result = PMA_displayJavascript(array('var i = 1', 'i++'));
 
         $this->assertEquals(
-            '<script type="text/javascript">'
+            '<script type="text/javascript">' . "\n"
             . 'if (typeof configInlineParams === "undefined"'
             . ' || !Array.isArray(configInlineParams)) '
             . 'configInlineParams = [];' . "\n"
@@ -563,7 +549,8 @@ class PMA_FormDisplay_Tpl_Test extends PHPUnit_Framework_TestCase
             . 'i++;' . "\n"
             . '});' . "\n"
             . 'if (typeof configScriptLoaded !== "undefined"'
-            . ' && configInlineParams) loadInlineConfig();</script>',
+            . ' && configInlineParams) loadInlineConfig();'
+            . "\n" . '</script>',
             $result
         );
     }

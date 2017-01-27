@@ -15,18 +15,19 @@ use PMA\libraries\Theme;
 use PMA\libraries\TypesMySQL;
 
 require_once 'test/libraries/stubs/ResponseStub.php';
+require_once 'test/PMATestCase.php';
 
 /**
  * Tests for PMA_TableSearch
  *
  * @package PhpMyAdmin-test
  */
-class TableSearchControllerTest extends PHPUnit_Framework_TestCase
+class TableSearchControllerTest extends PMATestCase
 {
     /**
      * @var PMA\Test\Stubs\Response
      */
-    private $response;
+    private $_response;
 
     /**
      * Setup function for test cases
@@ -39,25 +40,13 @@ class TableSearchControllerTest extends PHPUnit_Framework_TestCase
         /**
          * SET these to avoid undefined index error
          */
-        $_SESSION['PMA_Theme'] = new Theme();
         $_POST['zoom_submit'] = 'zoom';
 
         $GLOBALS['server'] = 1;
         $GLOBALS['PMA_PHP_SELF'] = 'index.php';
-        $GLOBALS['pmaThemeImage'] = 'themes/dot.gif';
-        $GLOBALS['is_ajax_request'] = false;
         $GLOBALS['cfgRelation'] = PMA_getRelationsParam();
         $GLOBALS['PMA_Types'] = new TypesMySQL();
-
-        $GLOBALS['cfg']['ServerDefault'] = 1;
-        $GLOBALS['cfg']['maxRowPlotLimit'] = 500;
         $GLOBALS['cfg']['Server']['DisableIS'] = false;
-        $GLOBALS['cfg']['ServerDefault'] = 1;
-        $GLOBALS['cfg']['ActionLinksMode'] = 'both';
-        $GLOBALS['cfg']['ForeignKeyMaxLimit'] = 100;
-        $GLOBALS['cfg']['InitialSlidersState'] = 'closed';
-        $GLOBALS['cfg']['MaxRows'] = 25;
-        $GLOBALS['cfg']['TabsMode'] = 'text';
 
         $dbi = $this->getMockBuilder('PMA\libraries\DatabaseInterface')
             ->disableOriginalConstructor()
@@ -93,16 +82,18 @@ class TableSearchControllerTest extends PHPUnit_Framework_TestCase
 
         $dbi->expects($this->any())->method('fetchValue')
             ->will($this->returnValue($show_create_table));
+        $dbi->expects($this->any())->method('escapeString')
+            ->will($this->returnArgument(0));
 
         $GLOBALS['dbi'] = $dbi;
 
-        $this->response = new PMA\Test\Stubs\Response();
+        $this->_response = new PMA\Test\Stubs\Response();
 
         $container = Container::getDefaultContainer();
         $container->set('db', 'PMA');
         $container->set('table', 'PMA_BookMark');
         $container->set('dbi', $GLOBALS['dbi']);
-        $container->set('response', $this->response);
+        $container->set('response', $this->_response);
         $container->set('searchType', 'replace');
     }
 
@@ -380,7 +371,7 @@ class TableSearchControllerTest extends PHPUnit_Framework_TestCase
         );
         $ctrl->getDataRowAction();
 
-        $json = $this->response->getJSONResult();
+        $json = $this->_response->getJSONResult();
         $this->assertEquals(
             $expected,
             $json['row_info']

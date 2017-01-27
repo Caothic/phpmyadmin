@@ -1,7 +1,6 @@
 <?php
 /* vim: set expandtab sw=4 ts=4 sts=4: */
 /**
- * Test for PMA_fatalError() from libraries/core.lib.php
  *
  * PMA_fatalError() displays the given error message on phpMyAdmin error page in
  * foreign language
@@ -15,20 +14,7 @@
  */
 use PMA\libraries\Theme;
 
-require_once 'libraries/vendor_config.php';
-require_once 'libraries/core.lib.php';
-
-require_once 'libraries/js_escape.lib.php';
-require_once 'libraries/select_lang.lib.php';
-require_once 'libraries/sanitizing.lib.php';
-
-require_once 'libraries/url_generating.lib.php';
-
-
-require_once 'libraries/php-gettext/gettext.inc';
-
 /**
- * Test for PMA_fatalError() from libraries/core.lib.php
  *
  * PMA_fatalError() displays the given error message on phpMyAdmin error page in
  * foreign language
@@ -52,8 +38,6 @@ class PMA_FatalError_Test extends PHPUnit_Framework_TestCase
             'verbose' => 'verbose',
         );
         $GLOBALS['cfg']['OBGzip'] = false;
-        $_SESSION['PMA_Theme'] = new Theme();
-        $GLOBALS['pmaThemeImage'] = 'theme/';
         $GLOBALS['pmaThemePath'] = $_SESSION['PMA_Theme']->getPath();
         $GLOBALS['server'] = 1;
         $GLOBALS['db'] = '';

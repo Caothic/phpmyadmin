@@ -6,17 +6,16 @@
  * @package PhpMyAdmin-test
  */
 
-/*
- * Include to test.
- */
-require_once 'libraries/dbi/DBIDummy.php';
+use PMA\libraries\DatabaseInterface;
+
+require_once 'test/PMATestCase.php';
 
 /**
  * Tests basic functionality of dummy dbi driver
  *
  * @package PhpMyAdmin-test
  */
-class DatabaseInterfaceTest extends PHPUnit_Framework_TestCase
+class DatabaseInterfaceTest extends PMATestCase
 {
 
     private $_dbi;
@@ -28,8 +27,19 @@ class DatabaseInterfaceTest extends PHPUnit_Framework_TestCase
      */
     function setup()
     {
-        //$extension = new DBIDummy();
-        $extension = $this->getMockBuilder('DBIDummy')
+        $extension = new PMA\libraries\dbi\DBIDummy();
+        $this->_dbi = new PMA\libraries\DatabaseInterface($extension);
+    }
+
+    /**
+     * Tests for DBI::getColumnMapFromSql() method.
+     *
+     * @return void
+     * @test
+     */
+    public function testPMAGetColumnMap()
+    {
+        $extension = $this->getMockBuilder('PMA\libraries\dbi\DBIDummy')
             ->disableOriginalConstructor()
             ->getMock();
 
@@ -55,23 +65,14 @@ class DatabaseInterfaceTest extends PHPUnit_Framework_TestCase
                 )
             );
 
-        $this->_dbi = new PMA\libraries\DatabaseInterface($extension);
-    }
+        $dbi = new PMA\libraries\DatabaseInterface($extension);
 
-    /**
-     * Tests for DBI::getColumnMapFromSql() method.
-     *
-     * @return void
-     * @test
-     */
-    public function testPMAGetColumnMap()
-    {
         $sql_query = "PMA_sql_query";
         $view_columns = array(
             "view_columns1", "view_columns2"
         );
 
-        $column_map = $this->_dbi->getColumnMapFromSql(
+        $column_map = $dbi->getColumnMapFromSql(
             $sql_query, $view_columns
         );
 
@@ -104,6 +105,207 @@ class DatabaseInterfaceTest extends PHPUnit_Framework_TestCase
         $sd = $this->_dbi->getSystemDatabase();
         $this->assertInstanceOf('PMA\libraries\SystemDatabase', $sd);
     }
+
+    /**
+     * Test for getDbCollation
+     *
+     * @return void
+     * @test
+     */
+    public function testGetDbCollation()
+    {
+        $GLOBALS['server'] = 1;
+        // test case for system schema
+        $this->assertEquals(
+            'utf8_general_ci',
+            $this->_dbi->getDbCollation("information_schema")
+        );
+
+        $GLOBALS['cfg']['Server']['DisableIS'] = false;
+        $GLOBALS['cfg']['DBG']['sql'] = false;
+
+        $this->assertEquals(
+            'utf8_general_ci',
+            $this->_dbi->getDbCollation('pma_test')
+        );
+    }
+
+    /**
+     * Test for getServerCollation
+     *
+     * @return void
+     * @test
+     */
+    public function testGetServerCollation()
+    {
+        $GLOBALS['server'] = 1;
+        $GLOBALS['cfg']['DBG']['sql'] = true;
+        $this->assertEquals('utf8_general_ci', $this->_dbi->getServerCollation());
+    }
+
+    /**
+     * Test for getConnectionParams
+     *
+     * @param array      $server_cfg Server configuration
+     * @param integer    $mode       Mode to test
+     * @param array|null $server     Server array to test
+     * @param array      $expected   Expected result
+     *
+     * @return void
+     *
+     * @dataProvider connectionParams
+     */
+    public function testGetConnectionParams($server_cfg, $mode, $server, $expected)
+    {
+        $GLOBALS['cfg']['Server'] = $server_cfg;
+        $result = $this->_dbi->getConnectionParams($mode, $server);
+        $this->assertEquals($expected, $result);
+    }
+
+    /**
+     * Data provider for getConnectionParams test
+     *
+     * @return array
+     */
+    public function connectionParams()
+    {
+        $cfg_basic = array(
+            'user' => 'u',
+            'password' => 'pass',
+            'host' => '',
+            'controluser' => 'u2',
+            'controlpass' => 'p2',
+        );
+        $cfg_ssl = array(
+            'user' => 'u',
+            'password' => 'pass',
+            'host' => '',
+            'ssl' => true,
+            'controluser' => 'u2',
+            'controlpass' => 'p2',
+        );
+        $cfg_control_ssl = array(
+            'user' => 'u',
+            'password' => 'pass',
+            'host' => '',
+            'control_ssl' => true,
+            'controluser' => 'u2',
+            'controlpass' => 'p2',
+        );
+        return array(
+            array(
+                $cfg_basic,
+                DatabaseInterface::CONNECT_USER,
+                null,
+                array(
+                    'u',
+                    'pass',
+                    array(
+                        'user' => 'u',
+                        'password' => 'pass',
+                        'host' => 'localhost',
+                        'socket' => null,
+                        'port' => 0,
+                        'ssl' => false,
+                        'compress' => false,
+                        'controluser' => 'u2',
+                        'controlpass' => 'p2',
+                    )
+                ),
+            ),
+            array(
+                $cfg_basic,
+                DatabaseInterface::CONNECT_CONTROL,
+                null,
+                array(
+                    'u2',
+                    'p2',
+                    array(
+                        'host' => 'localhost',
+                        'socket' => null,
+                        'port' => 0,
+                        'ssl' => false,
+                        'compress' => false,
+                    )
+                ),
+            ),
+            array(
+                $cfg_ssl,
+                DatabaseInterface::CONNECT_USER,
+                null,
+                array(
+                    'u',
+                    'pass',
+                    array(
+                        'user' => 'u',
+                        'password' => 'pass',
+                        'host' => 'localhost',
+                        'socket' => null,
+                        'port' => 0,
+                        'ssl' => true,
+                        'compress' => false,
+                        'controluser' => 'u2',
+                        'controlpass' => 'p2',
+                    )
+                ),
+            ),
+            array(
+                $cfg_ssl,
+                DatabaseInterface::CONNECT_CONTROL,
+                null,
+                array(
+                    'u2',
+                    'p2',
+                    array(
+                        'host' => 'localhost',
+                        'socket' => null,
+                        'port' => 0,
+                        'ssl' => true,
+                        'compress' => false,
+                    )
+                ),
+            ),
+            array(
+                $cfg_control_ssl,
+                DatabaseInterface::CONNECT_USER,
+                null,
+                array(
+                    'u',
+                    'pass',
+                    array(
+                        'user' => 'u',
+                        'password' => 'pass',
+                        'host' => 'localhost',
+                        'socket' => null,
+                        'port' => 0,
+                        'ssl' => false,
+                        'compress' => false,
+                        'controluser' => 'u2',
+                        'controlpass' => 'p2',
+                        'control_ssl' => true,
+                    )
+                ),
+            ),
+            array(
+                $cfg_control_ssl,
+                DatabaseInterface::CONNECT_CONTROL,
+                null,
+                array(
+                    'u2',
+                    'p2',
+                    array(
+                        'host' => 'localhost',
+                        'socket' => null,
+                        'port' => 0,
+                        'ssl' => true,
+                        'compress' => false,
+                    )
+                ),
+            ),
+        );
+    }
+
+
 }
 
 /**

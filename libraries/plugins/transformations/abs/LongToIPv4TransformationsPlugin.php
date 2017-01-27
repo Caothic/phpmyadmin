@@ -10,10 +10,6 @@ namespace PMA\libraries\plugins\transformations\abs;
 
 use PMA\libraries\plugins\TransformationsPlugin;
 
-if (!defined('PHPMYADMIN')) {
-    exit;
-}
-
 /**
  * Provides common methods for all of the long to IPv4 transformations plugins.
  *
@@ -46,7 +42,7 @@ abstract class LongToIPv4TransformationsPlugin extends TransformationsPlugin
     public function applyTransformation($buffer, $options = array(), $meta = '')
     {
         if ($buffer < 0 || $buffer > 4294967295) {
-            return $buffer;
+            return htmlspecialchars($buffer);
         }
 
         return long2ip($buffer);

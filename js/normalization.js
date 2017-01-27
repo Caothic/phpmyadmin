@@ -82,7 +82,7 @@ function goTo2NFStep1() {
             $("#mainContent #extra").html(data.extra);
             $("#mainContent #newCols").html('');
             if (data.subText !== '') {
-                $('.tblFooters').html('<input type="submit" value="' + PMA_messages.strDone + '" onclick="processDependencies(\'' + data.primary_key + '\');">');
+                $('.tblFooters').html('<input type="submit" value="' + PMA_messages.strDone + '" onclick="processDependencies(\'' + escapeJsString(escapeHtml(data.primary_key)) + '\');">');
             } else {
                 if (normalizeto === '3nf') {
                     $("#mainContent #newCols").html(PMA_messages.strToNextStep);
@@ -102,7 +102,7 @@ function goToFinish1NF()
     }
     $("#mainContent legend").html(PMA_messages.strEndStep);
     $("#mainContent h4").html(
-        "<h3>" + PMA_sprintf(PMA_messages.strFinishMsg, PMA_commonParams.get('table')) + "</h3>"
+        "<h3>" + PMA_sprintf(PMA_messages.strFinishMsg, escapeHtml(PMA_commonParams.get('table'))) + "</h3>"
     );
     $("#mainContent p").html('');
     $("#mainContent #extra").html('');
@@ -128,7 +128,7 @@ function goToStep4()
             $("#mainContent #newCols").html('');
             $('.tblFooters').html('');
             for(var pk in primary_key) {
-                $("#extra input[value='" + primary_key[pk] + "']").attr("disabled","disabled");
+                $("#extra input[value='" + escapeJsString(primary_key[pk]) + "']").attr("disabled","disabled");
             }
         }
     );
@@ -151,9 +151,9 @@ function goToStep3()
             $("#mainContent #extra").html(data.extra);
             $("#mainContent #newCols").html('');
             $('.tblFooters').html('');
-            primary_key = $.parseJSON(data.primary_key);
+            primary_key = JSON.parse(data.primary_key);
             for(var pk in primary_key) {
-                $("#extra input[value='" + primary_key[pk] + "']").attr("disabled","disabled");
+                $("#extra input[value='" + escapeJsString(primary_key[pk]) + "']").attr("disabled","disabled");
             }
         }
     );
@@ -357,7 +357,7 @@ function goTo3NFStep2(pd, tablesTds)
             data: datastring,
             async:false,
             success: function(data) {
-                data_parsed = $.parseJSON(data.message);
+                data_parsed = JSON.parse(data.message);
                 if (data.success === true) {
                     extra += data_parsed.html;
                 } else {
@@ -638,7 +638,7 @@ AJAX.registerOnload('normalization.js', function() {
                 '</ol>';
             $("#newCols").html(confirmStr);
             $('.tblFooters').html('<input type="submit" value="' + PMA_messages.strCancel + '" onclick="$(\'#newCols\').html(\'\');$(\'#extra input[type=checkbox]\').removeAttr(\'checked\')"/>' +
-                '<input type="submit" value="' + PMA_messages.strGo + '" onclick="moveRepeatingGroup(\'' + repeatingCols + '\')"/>');
+                '<input type="submit" value="' + PMA_messages.strGo + '" onclick="moveRepeatingGroup(\'' + escapeJsString(escapeHtml(repeatingCols)) + '\')"/>');
         }
     });
     $("#mainContent p").on("click", "#createPrimaryKey", function(event) {
